@@ -1,46 +1,56 @@
 package cn.edu.whut.sept.zuul;
 
+import java.util.Collection;
 import java.util.Scanner;
 
-public class Parser
-{
-    private CommandWords commands;  // holds all valid command words
-    private Scanner reader;         // source of command input
+/**
+ * 解析玩家在终端输入的命令。
+ */
+public class Parser {
+    private final CommandWords commands;
+    private final Scanner reader;
 
-    public Parser()
-    {
-        commands = new CommandWords();
+    /**
+     * 创建解析器。
+     *
+     * @param commandWords 游戏支持的命令词
+     */
+    public Parser(Collection<String> commandWords) {
+        commands = new CommandWords(commandWords);
         reader = new Scanner(System.in);
     }
 
-    public Command getCommand()
-    {
-        String inputLine;   // will hold the full input line
+    /**
+     * 从终端读取并解析命令。
+     *
+     * @return 解析后的命令对象
+     */
+    public Command getCommand() {
         String word1 = null;
         String word2 = null;
 
-        System.out.print("> ");     // print prompt
-
-        inputLine = reader.nextLine();
+        System.out.print("> ");
+        String inputLine = reader.nextLine();
 
         Scanner tokenizer = new Scanner(inputLine);
-        if(tokenizer.hasNext()) {
-            word1 = tokenizer.next();      // get first word
-            if(tokenizer.hasNext()) {
-                word2 = tokenizer.next();      // get second word
+        if (tokenizer.hasNext()) {
+            word1 = tokenizer.next();
+            if (tokenizer.hasNext()) {
+                word2 = tokenizer.next();
             }
         }
+        tokenizer.close();
 
-        Command command = commands.get(word1);
-        if(command != null) {
-            command.setSecondWord(word2);
+        if (commands.isCommand(word1)) {
+            return new Command(word1, word2);
         }
-        return command;
+        return new Command(null, word2);
     }
 
-    public void showCommands()
-    {
+    /**
+     * 输出当前支持的命令。
+     */
+    public void showCommands() {
         commands.showAll();
     }
 }
-

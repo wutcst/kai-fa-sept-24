@@ -1,29 +1,40 @@
 package cn.edu.whut.sept.zuul;
 
-import java.util.HashMap;
-import java.util.Iterator;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
-public class CommandWords
-{
-    private HashMap<String, Command> commands;
+/**
+ * 保存游戏支持的有效命令词。
+ */
+public class CommandWords {
+    private final Set<String> validCommands;
 
-    public CommandWords()
-    {
-        commands = new HashMap<String, Command>();
-        commands.put("go", new GoCommand());
-        commands.put("help", new HelpCommand(this));
-        commands.put("quit", new QuitCommand());
+    /**
+     * 根据命令词集合创建命令表。
+     *
+     * @param commandWords 命令词集合
+     */
+    public CommandWords(Collection<String> commandWords) {
+        validCommands = new LinkedHashSet<>(commandWords);
     }
 
-    public Command get(String word)
-    {
-        return (Command)commands.get(word);
+    /**
+     * 判断字符串是否为有效命令。
+     *
+     * @param commandWord 待检查命令词
+     * @return 有效时返回 true
+     */
+    public boolean isCommand(String commandWord) {
+        return validCommands.contains(commandWord);
     }
 
-    public void showAll()
-    {
-        for(Iterator i = commands.keySet().iterator(); i.hasNext(); ) {
-            System.out.print(i.next() + "  ");
+    /**
+     * 输出全部有效命令。
+     */
+    public void showAll() {
+        for (String command : validCommands) {
+            System.out.print(command + "  ");
         }
         System.out.println();
     }
