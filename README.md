@@ -14,6 +14,12 @@
 - `eat cookie` 命令可以吃掉魔法饼干并提升最大负重。
 - 传送房间会在玩家进入后随机传送到其他房间。
 - 命令处理使用注册表分发，新增命令时不需要在主流程里堆叠大量 `if` 判断。
+- 游戏包含明确目标：取得钥匙、打开资料室、拿到宝藏并回到入口通关。
+- 增加分数系统，拾取物品、解锁房间和通关都会增加分数。
+- 增加生命值和危险房间，进入实验室会扣除生命值。
+- 增加 `quest`、`score`、`status`、`map` 命令，方便查看任务、分数、状态和已探索地图。
+- 增加 `save`、`load` 命令，可保存和读取当前进度。
+- 支持方向别名和命令别名，例如 `e`、`w`、`north`、`get book`。
 
 ## 运行环境
 
@@ -32,14 +38,25 @@ java -jar target/zuul-1.0-SNAPSHOT.jar
 
 ```text
 look
-go east
-take book
-items
+quest
+go west
+take key
 back
 go south
 go east
-eat cookie
-quit
+go east
+take treasure
+back
+back
+back
+```
+
+也可以尝试较短的别名：
+
+```text
+e
+get book
+items
 ```
 
 ## 常用命令
@@ -61,6 +78,8 @@ java -jar target/zuul-1.0-SNAPSHOT.jar
 ```
 
 启动游戏。
+
+游戏存档会写入当前目录的 `zuul-save.properties`，该文件已加入 `.gitignore`，不会被提交。
 
 ## 项目结构
 
@@ -89,4 +108,4 @@ src/test/java/cn/edu/whut/sept/zuul/
 
 ## 测试覆盖
 
-当前测试覆盖未知命令、帮助和退出、正常移动、无效方向、房间查看、连续回退、拾取和丢弃物品、负重限制、魔法饼干、传送房间等主要流程。
+当前测试覆盖未知命令、帮助和退出、正常移动、无效方向、房间查看、连续回退、拾取和丢弃物品、负重限制、魔法饼干、传送房间、方向别名、钥匙锁门、通关、生命值、任务/地图/状态命令、保存和读取等主要流程。

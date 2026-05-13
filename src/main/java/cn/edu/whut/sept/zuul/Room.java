@@ -10,20 +10,36 @@ import java.util.Set;
  * 表示游戏中的一个房间。
  */
 public class Room {
+    private final String id;
     private final String description;
     private final Map<String, Room> exits;
     private final Map<String, Item> items;
     private boolean transportRoom;
+    private boolean locked;
+    private String requiredItemName;
+    private boolean dangerous;
+    private int damage;
 
     /**
      * 创建房间。
      *
+     * @param id 房间编号，用于存档和地图
      * @param description 房间描述
      */
-    public Room(String description) {
+    public Room(String id, String description) {
+        this.id = id;
         this.description = description;
         exits = new HashMap<>();
         items = new LinkedHashMap<>();
+    }
+
+    /**
+     * 获取房间编号。
+     *
+     * @return 房间编号
+     */
+    public String getId() {
+        return id;
     }
 
     /**
@@ -117,6 +133,13 @@ public class Room {
     }
 
     /**
+     * 清空房间物品，用于读取存档前重建世界状态。
+     */
+    public void clearItems() {
+        items.clear();
+    }
+
+    /**
      * 获取房间物品总重量。
      *
      * @return 物品总重量
@@ -163,5 +186,65 @@ public class Room {
      */
     public boolean isTransportRoom() {
         return transportRoom;
+    }
+
+    /**
+     * 设置房间锁定状态。
+     *
+     * @param locked true 表示房间上锁
+     * @param requiredItemName 解锁需要的物品名称
+     */
+    public void setLocked(boolean locked, String requiredItemName) {
+        this.locked = locked;
+        if (requiredItemName != null) {
+            this.requiredItemName = requiredItemName;
+        }
+    }
+
+    /**
+     * 判断房间是否上锁。
+     *
+     * @return true 表示上锁
+     */
+    public boolean isLocked() {
+        return locked;
+    }
+
+    /**
+     * 获取解锁需要的物品名称。
+     *
+     * @return 需要的物品名称
+     */
+    public String getRequiredItemName() {
+        return requiredItemName;
+    }
+
+    /**
+     * 设置房间危险效果。
+     *
+     * @param dangerous true 表示进入会受伤
+     * @param damage 伤害值
+     */
+    public void setDangerous(boolean dangerous, int damage) {
+        this.dangerous = dangerous;
+        this.damage = damage;
+    }
+
+    /**
+     * 判断房间是否危险。
+     *
+     * @return true 表示进入会受伤
+     */
+    public boolean isDangerous() {
+        return dangerous;
+    }
+
+    /**
+     * 获取房间伤害值。
+     *
+     * @return 伤害值
+     */
+    public int getDamage() {
+        return damage;
     }
 }

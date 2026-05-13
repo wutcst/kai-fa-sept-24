@@ -12,6 +12,8 @@ public class Player {
     private Room currentRoom;
     private final Map<String, Item> inventory;
     private int maxCarryWeight;
+    private int health;
+    private int score;
 
     /**
      * 创建玩家。
@@ -24,6 +26,8 @@ public class Player {
         this.name = name;
         this.currentRoom = currentRoom;
         this.maxCarryWeight = maxCarryWeight;
+        health = 10;
+        score = 0;
         inventory = new LinkedHashMap<>();
     }
 
@@ -94,6 +98,16 @@ public class Player {
     }
 
     /**
+     * 判断背包中是否有指定物品。
+     *
+     * @param name 物品名称
+     * @return 存在时返回 true
+     */
+    public boolean hasItem(String name) {
+        return inventory.containsKey(name);
+    }
+
+    /**
      * 获取背包物品总重量。
      *
      * @return 总重量
@@ -116,6 +130,15 @@ public class Player {
     }
 
     /**
+     * 设置最大可携带重量，用于读取存档。
+     *
+     * @param maxCarryWeight 最大负重
+     */
+    public void setMaxCarryWeight(int maxCarryWeight) {
+        this.maxCarryWeight = maxCarryWeight;
+    }
+
+    /**
      * 提升最大可携带重量。
      *
      * @param extraWeight 增加重量
@@ -131,6 +154,70 @@ public class Player {
      */
     public Collection<Item> getInventoryItems() {
         return inventory.values();
+    }
+
+    /**
+     * 清空背包，用于读取存档前重建玩家状态。
+     */
+    public void clearInventory() {
+        inventory.clear();
+    }
+
+    /**
+     * 获取生命值。
+     *
+     * @return 当前生命值
+     */
+    public int getHealth() {
+        return health;
+    }
+
+    /**
+     * 设置生命值。
+     *
+     * @param health 新生命值
+     */
+    public void setHealth(int health) {
+        this.health = health;
+    }
+
+    /**
+     * 扣除生命值。
+     *
+     * @param damage 伤害值
+     */
+    public void hurt(int damage) {
+        health -= damage;
+        if (health < 0) {
+            health = 0;
+        }
+    }
+
+    /**
+     * 获取得分。
+     *
+     * @return 当前分数
+     */
+    public int getScore() {
+        return score;
+    }
+
+    /**
+     * 设置得分。
+     *
+     * @param score 新分数
+     */
+    public void setScore(int score) {
+        this.score = score;
+    }
+
+    /**
+     * 增加分数。
+     *
+     * @param points 增加分数
+     */
+    public void addScore(int points) {
+        score += points;
     }
 
     /**
