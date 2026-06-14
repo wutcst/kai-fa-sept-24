@@ -1,0 +1,298 @@
+package cn.edu.whut.sept.dungeon.io;
+
+import cn.edu.whut.sept.dungeon.core.Direction;
+import cn.edu.whut.sept.dungeon.core.GameState;
+import cn.edu.whut.sept.dungeon.world.Corridor;
+import cn.edu.whut.sept.dungeon.world.Position;
+import cn.edu.whut.sept.dungeon.world.Room;
+import cn.edu.whut.sept.dungeon.world.Tile;
+import cn.edu.whut.sept.dungeon.world.World;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public final class SaveManager {
+    public static final File DEFAULT_SAVE_FILE = new File("save/campus-dungeon-save.json");
+    private static final int VERSION = 1;
+
+    private final File saveFile;
+    private final Gson gson;
+
+    public SaveManager() {
+        this(DEFAULT_SAVE_FILE);
+    }
+
+    public SaveManager(File saveFile) {
+        this.saveFile = saveFile;
+        this.gson = new GsonBuilder().setPrettyPrinting().create();
+    }
+
+    public void save(GameState state) {
+        File parent = saveFile.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            throw new IllegalStateException("Could not create save directory: " + parent);
+        }
+
+        try (FileWriter writer = new FileWriter(saveFile)) {
+            gson.toJson(SaveData.from(state), writer);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not save game.", exception);
+        }
+    }
+
+    public GameState load() {
+        if (!saveFile.exists()) {
+            return GameState.initial().withMessage("No saved game.");
+        }
+
+        try (FileReader reader = new FileReader(saveFile)) {
+            SaveData data = gson.fromJson(reader, SaveData.class);
+            if (data == null) {
+                return GameState.initial().withMessage("No saved game.");
+            }
+            return data.toGameState().withMessage("Loaded saved game.");
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not load game.", exception);
+        }
+    }
+
+    static final class SaveData {
+        int version;
+        Long seed;
+        boolean started;
+        boolean exited;
+        boolean saveRequested;
+        PlayerData player;
+        WorldData world;
+        List<String> inventory;
+        QuestData quest;
+        EntityData entities;
+        List<String> explored;
+        String message;
+
+        static SaveData from(GameState state) {
+            SaveData data = new SaveData();
+            data.version = VERSION;
+            data.seed = state.getSeed();
+            data.started = state.isStarted();
+            data.exited = state.isExited();
+            data.saveRequested = state.isSaveRequested();
+            data.player = PlayerData.from(state.getPlayer());
+            data.world = state.getWorld() == null ? null : WorldData.from(state.getWorld());
+            data.inventory = Collections.emptyList();
+            data.quest = new QuestData();
+            data.entities = new EntityData();
+            data.explored = encodeBooleans(state.copyExplored());
+            data.message = state.getMessage();
+            return data;
+        }
+
+        GameState toGameState() {
+            World restoredWorld = world == null ? null : world.toWorld();
+            GameState.PlayerState restoredPlayer = player == null
+                    ? GameState.PlayerState.origin()
+                    : player.toPlayerState();
+            return GameState.restored(seed, started, exited, saveRequested, restoredPlayer, restoredWorld,
+                    decodeBooleans(explored), message);
+        }
+    }
+
+    static final class PlayerData {
+        int x;
+        int y;
+        Direction direction;
+        int steps;
+
+        static PlayerData from(GameState.PlayerState player) {
+            PlayerData data = new PlayerData();
+            data.x = player.getX();
+            data.y = player.getY();
+            data.direction = player.getDirection();
+            data.steps = player.getSteps();
+            return data;
+        }
+
+        GameState.PlayerState toPlayerState() {
+            return GameState.PlayerState.of(x, y, direction == null ? Direction.SOUTH : direction, steps);
+        }
+    }
+
+    static final class WorldData {
+        int width;
+        int height;
+        List<String> tiles;
+        List<RoomData> rooms;
+        List<CorridorData> corridors;
+        PositionData spawn;
+        PositionData defenseHall;
+
+        static WorldData from(World world) {
+            WorldData data = new WorldData();
+            data.width = world.getWidth();
+            data.height = world.getHeight();
+            data.tiles = encodeTiles(world);
+            data.rooms = new ArrayList<RoomData>();
+            for (Room room : world.getRooms()) {
+                data.rooms.add(RoomData.from(room));
+            }
+            data.corridors = new ArrayList<CorridorData>();
+            for (Corridor corridor : world.getCorridors()) {
+                data.corridors.add(CorridorData.from(corridor));
+            }
+            data.spawn = PositionData.from(world.getSpawnPosition());
+            data.defenseHall = PositionData.from(world.getDefenseHallPosition());
+            return data;
+        }
+
+        World toWorld() {
+            return new World(width, height, decodeTiles(tiles, width, height), toRooms(), toCorridors(),
+                    spawn.toPosition(), defenseHall.toPosition());
+        }
+
+        private List<Room> toRooms() {
+            List<Room> result = new ArrayList<Room>();
+            if (rooms != null) {
+                for (RoomData room : rooms) {
+                    result.add(room.toRoom());
+                }
+            }
+            return result;
+        }
+
+        private List<Corridor> toCorridors() {
+            List<Corridor> result = new ArrayList<Corridor>();
+            if (corridors != null) {
+                for (CorridorData corridor : corridors) {
+                    result.add(corridor.toCorridor());
+                }
+            }
+            return result;
+        }
+    }
+
+    static final class RoomData {
+        int x;
+        int y;
+        int width;
+        int height;
+
+        static RoomData from(Room room) {
+            RoomData data = new RoomData();
+            data.x = room.getX();
+            data.y = room.getY();
+            data.width = room.getWidth();
+            data.height = room.getHeight();
+            return data;
+        }
+
+        Room toRoom() {
+            return new Room(x, y, width, height);
+        }
+    }
+
+    static final class CorridorData {
+        PositionData from;
+        PositionData corner;
+        PositionData to;
+
+        static CorridorData from(Corridor corridor) {
+            CorridorData data = new CorridorData();
+            data.from = PositionData.from(corridor.getFrom());
+            data.corner = PositionData.from(corridor.getCorner());
+            data.to = PositionData.from(corridor.getTo());
+            return data;
+        }
+
+        Corridor toCorridor() {
+            return new Corridor(from.toPosition(), corner.toPosition(), to.toPosition());
+        }
+    }
+
+    static final class PositionData {
+        int x;
+        int y;
+
+        static PositionData from(Position position) {
+            PositionData data = new PositionData();
+            data.x = position.getX();
+            data.y = position.getY();
+            return data;
+        }
+
+        Position toPosition() {
+            return new Position(x, y);
+        }
+    }
+
+    static final class QuestData {
+        boolean reportUnlocked;
+        boolean slidesExported;
+        boolean passIssued;
+        boolean completed;
+    }
+
+    static final class EntityData {
+        List<String> items = Collections.emptyList();
+        List<String> npcs = Collections.emptyList();
+        List<String> doors = Collections.emptyList();
+    }
+
+    private static List<String> encodeTiles(World world) {
+        List<String> rows = new ArrayList<String>();
+        for (int y = 0; y < world.getHeight(); y++) {
+            StringBuilder row = new StringBuilder(world.getWidth());
+            for (int x = 0; x < world.getWidth(); x++) {
+                row.append(world.getTile(x, y).getSymbol());
+            }
+            rows.add(row.toString());
+        }
+        return rows;
+    }
+
+    private static Tile[][] decodeTiles(List<String> rows, int width, int height) {
+        Tile[][] tiles = new Tile[height][width];
+        for (int y = 0; y < height; y++) {
+            String row = rows.get(y);
+            for (int x = 0; x < width; x++) {
+                tiles[y][x] = row.charAt(x) == Tile.FLOOR.getSymbol() ? Tile.FLOOR : Tile.WALL;
+            }
+        }
+        return tiles;
+    }
+
+    private static List<String> encodeBooleans(boolean[][] grid) {
+        List<String> rows = new ArrayList<String>();
+        if (grid == null) {
+            return rows;
+        }
+        for (int y = 0; y < grid.length; y++) {
+            StringBuilder row = new StringBuilder(grid[y].length);
+            for (int x = 0; x < grid[y].length; x++) {
+                row.append(grid[y][x] ? '1' : '0');
+            }
+            rows.add(row.toString());
+        }
+        return rows;
+    }
+
+    private static boolean[][] decodeBooleans(List<String> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return null;
+        }
+        boolean[][] grid = new boolean[rows.size()][rows.get(0).length()];
+        for (int y = 0; y < rows.size(); y++) {
+            String row = rows.get(y);
+            for (int x = 0; x < row.length(); x++) {
+                grid[y][x] = row.charAt(x) == '1';
+            }
+        }
+        return grid;
+    }
+}

@@ -43,6 +43,12 @@ public final class GameState {
                 "New game started with seed " + seed + ".");
     }
 
+    public static GameState restored(Long seed, boolean started, boolean exited, boolean saveRequested,
+                                     PlayerState player, World world, boolean[][] explored, String message) {
+        return new GameState(seed, started, exited, saveRequested, player, world,
+                explored, world == null ? null : createVisibleFor(world, player), message);
+    }
+
     public Long getSeed() {
         return seed;
     }
@@ -77,6 +83,10 @@ public final class GameState {
 
     public boolean isVisible(int x, int y) {
         return isMarked(visible, x, y);
+    }
+
+    public boolean[][] copyExplored() {
+        return copyGrid(explored);
     }
 
     public int getVisibleCount() {
@@ -143,6 +153,10 @@ public final class GameState {
 
         public static PlayerState at(Position position) {
             return new PlayerState(position.getX(), position.getY(), Direction.SOUTH, 0);
+        }
+
+        public static PlayerState of(int x, int y, Direction direction, int steps) {
+            return new PlayerState(x, y, direction, steps);
         }
 
         public int getX() {

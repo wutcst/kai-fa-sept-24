@@ -1,20 +1,29 @@
 package cn.edu.whut.sept.dungeon.core;
 
+import cn.edu.whut.sept.dungeon.io.SaveManager;
+
 /**
  * Entry point for Campus Dungeon rules. GUI and tests should both drive the
  * game through this engine instead of mutating state directly.
  */
 public class GameEngine {
+    private final SaveManager saveManager;
     private GameState state;
 
     public GameEngine() {
+        this(new SaveManager());
+    }
+
+    public GameEngine(SaveManager saveManager) {
+        this.saveManager = saveManager;
         this.state = GameState.initial();
     }
 
     public GameResult playWithInputString(String input) {
-        GameEngine engine = new GameEngine();
+        state = GameState.initial();
         if (input == null || input.isEmpty()) {
-            return GameResult.of(engine.state.withMessage("No input."));
+            state = state.withMessage("No input.");
+            return GameResult.of(state);
         }
 
         int index = 0;
@@ -22,22 +31,22 @@ public class GameEngine {
             char current = Character.toLowerCase(input.charAt(index));
             if (current == 'n') {
                 SeedParseResult seedResult = parseSeed(input, index + 1);
-                engine.handleInput(InputCommand.newGame(seedResult.seed));
+                handleInput(InputCommand.newGame(seedResult.seed));
                 index = seedResult.nextIndex;
                 continue;
             }
             if (current == ':' && index + 1 < input.length()
                     && Character.toLowerCase(input.charAt(index + 1)) == 'q') {
-                engine.handleInput(InputCommand.saveAndQuit());
+                handleInput(InputCommand.saveAndQuit());
                 index += 2;
                 continue;
             }
 
-            engine.handleInput(InputCommand.fromKey(current));
+            handleInput(InputCommand.fromKey(current));
             index++;
         }
 
-        return GameResult.of(engine.state);
+        return GameResult.of(state);
     }
 
     public GameState handleInput(InputCommand command) {
@@ -51,7 +60,7 @@ public class GameEngine {
                 state = GameState.newGame(command.getSeed());
                 break;
             case LOAD:
-                state = state.withMessage("No saved game.");
+                state = saveManager.load();
                 break;
             case MOVE:
                 state = state.movePlayer(command.getDirection());
@@ -64,6 +73,7 @@ public class GameEngine {
                 break;
             case SAVE_AND_QUIT:
                 state = state.markSaveRequested().markExited().withMessage("Save requested.");
+                saveManager.save(state);
                 break;
             case UNKNOWN:
             default:
