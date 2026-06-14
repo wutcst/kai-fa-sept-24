@@ -2,6 +2,7 @@ package cn.edu.whut.sept.dungeon.core;
 
 import cn.edu.whut.sept.dungeon.world.Position;
 import cn.edu.whut.sept.dungeon.world.World;
+import cn.edu.whut.sept.dungeon.entity.Item;
 import org.junit.Test;
 
 import java.util.ArrayDeque;
@@ -118,6 +119,51 @@ public class GameEngineTest {
         assertTrue(moved.getExploredCount() >= initial.getExploredCount());
     }
 
+    @Test
+    public void playerCanPickUpItemAndViewInventory() {
+        GameEngine engine = new GameEngine();
+        engine.handleInput(InputCommand.newGame(123L));
+        Item item = engine.getState().getItems().get(0);
+
+        moveTo(engine, item.getPosition());
+        GameState picked = engine.handleInput(InputCommand.fromKey('e'));
+        GameState inventory = engine.handleInput(InputCommand.fromKey('i'));
+
+        assertTrue(picked.getInventory().contains(item.getId()));
+        assertEquals("Picked up " + item.getName() + ".", picked.getMessage());
+        assertTrue(inventory.getMessage().contains(item.getId()));
+    }
+
+    @Test
+    public void defenseDoorRejectsMissingMaterials() {
+        GameEngine engine = new GameEngine();
+        engine.handleInput(InputCommand.newGame(123L));
+
+        moveTo(engine, engine.getState().getWorld().getDefenseHallPosition());
+        GameState rejected = engine.handleInput(InputCommand.fromKey('e'));
+
+        assertFalse(rejected.isCompleted());
+        assertTrue(rejected.getMessage().contains("Defense hall locked."));
+        assertTrue(rejected.getMessage().contains("report"));
+    }
+
+    @Test
+    public void defenseDoorCompletesGameWithAllMaterials() {
+        GameEngine engine = new GameEngine();
+        engine.handleInput(InputCommand.newGame(123L));
+
+        for (Item item : engine.getState().getItems()) {
+            moveTo(engine, item.getPosition());
+            engine.handleInput(InputCommand.fromKey('e'));
+        }
+        moveTo(engine, engine.getState().getWorld().getDefenseHallPosition());
+        GameState completed = engine.handleInput(InputCommand.fromKey('e'));
+
+        assertTrue(completed.isCompleted());
+        assertTrue(completed.getMessage().contains("Defense completed"));
+        assertTrue(completed.getMessage().contains("software engineering practice"));
+    }
+
     private GameState moveUntilNextStepIsBlocked(GameEngine engine, Direction direction) {
         char key = keyFor(direction);
         GameState state = engine.getState();
@@ -182,6 +228,41 @@ public class GameEngineTest {
             }
         }
         throw new AssertionError("Could not find a walkable path beyond vision radius.");
+    }
+
+    private void moveTo(GameEngine engine, Position target) {
+        String path = pathTo(engine.getState(), target);
+        for (int i = 0; i < path.length(); i++) {
+            engine.handleInput(InputCommand.fromKey(path.charAt(i)));
+        }
+    }
+
+    private String pathTo(GameState state, Position target) {
+        World world = state.getWorld();
+        Position start = state.getPlayer().getPosition();
+        boolean[][] visited = new boolean[world.getHeight()][world.getWidth()];
+        Queue<PathNode> queue = new ArrayDeque<PathNode>();
+        queue.add(new PathNode(start, ""));
+        visited[start.getY()][start.getX()] = true;
+
+        while (!queue.isEmpty()) {
+            PathNode current = queue.remove();
+            if (current.position.equals(target)) {
+                return current.path;
+            }
+            Direction[] directions = {Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
+            for (Direction direction : directions) {
+                Position next = new Position(current.position.getX() + direction.getDx(),
+                        current.position.getY() + direction.getDy());
+                if (world.contains(next.getX(), next.getY())
+                        && !visited[next.getY()][next.getX()]
+                        && world.isWalkable(next)) {
+                    visited[next.getY()][next.getX()] = true;
+                    queue.add(new PathNode(next, current.path + keyFor(direction)));
+                }
+            }
+        }
+        throw new AssertionError("Could not find path to " + target);
     }
 
     private boolean isOutsideSquareVision(Position origin, Position position) {

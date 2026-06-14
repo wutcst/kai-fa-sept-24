@@ -2,6 +2,8 @@ package cn.edu.whut.sept.dungeon.io;
 
 import cn.edu.whut.sept.dungeon.core.Direction;
 import cn.edu.whut.sept.dungeon.core.GameState;
+import cn.edu.whut.sept.dungeon.entity.Inventory;
+import cn.edu.whut.sept.dungeon.entity.Item;
 import cn.edu.whut.sept.dungeon.world.Corridor;
 import cn.edu.whut.sept.dungeon.world.Position;
 import cn.edu.whut.sept.dungeon.world.Room;
@@ -86,9 +88,14 @@ public final class SaveManager {
             data.saveRequested = state.isSaveRequested();
             data.player = PlayerData.from(state.getPlayer());
             data.world = state.getWorld() == null ? null : WorldData.from(state.getWorld());
-            data.inventory = Collections.emptyList();
+            data.inventory = state.getInventory().getItemIds();
             data.quest = new QuestData();
+            data.quest.completed = state.isCompleted();
             data.entities = new EntityData();
+            data.entities.items = new ArrayList<ItemData>();
+            for (Item item : state.getItems()) {
+                data.entities.items.add(ItemData.from(item));
+            }
             data.explored = encodeBooleans(state.copyExplored());
             data.message = state.getMessage();
             return data;
@@ -99,8 +106,10 @@ public final class SaveManager {
             GameState.PlayerState restoredPlayer = player == null
                     ? GameState.PlayerState.origin()
                     : player.toPlayerState();
+            List<Item> restoredItems = entities == null ? Collections.<Item>emptyList() : entities.toItems();
+            boolean completed = quest != null && quest.completed;
             return GameState.restored(seed, started, exited, saveRequested, restoredPlayer, restoredWorld,
-                    decodeBooleans(explored), message);
+                    Inventory.of(inventory), restoredItems, completed, decodeBooleans(explored), message);
         }
     }
 
@@ -239,9 +248,39 @@ public final class SaveManager {
     }
 
     static final class EntityData {
-        List<String> items = Collections.emptyList();
+        List<ItemData> items = Collections.emptyList();
         List<String> npcs = Collections.emptyList();
         List<String> doors = Collections.emptyList();
+
+        List<Item> toItems() {
+            List<Item> result = new ArrayList<Item>();
+            if (items != null) {
+                for (ItemData item : items) {
+                    result.add(item.toItem());
+                }
+            }
+            return result;
+        }
+    }
+
+    static final class ItemData {
+        String id;
+        String name;
+        PositionData position;
+        boolean collected;
+
+        static ItemData from(Item item) {
+            ItemData data = new ItemData();
+            data.id = item.getId();
+            data.name = item.getName();
+            data.position = PositionData.from(item.getPosition());
+            data.collected = item.isCollected();
+            return data;
+        }
+
+        Item toItem() {
+            return new Item(id, name, position.toPosition(), collected);
+        }
     }
 
     private static List<String> encodeTiles(World world) {

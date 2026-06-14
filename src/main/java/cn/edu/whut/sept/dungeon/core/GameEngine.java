@@ -66,10 +66,10 @@ public class GameEngine {
                 state = state.movePlayer(command.getDirection());
                 break;
             case INTERACT:
-                state = state.withMessage("Interaction is not implemented yet.");
+                state = state.interact();
                 break;
             case INVENTORY:
-                state = state.withMessage("Inventory is empty.");
+                state = state.describeInventory();
                 break;
             case SAVE_AND_QUIT:
                 state = state.markSaveRequested().markExited().withMessage("Save requested.");

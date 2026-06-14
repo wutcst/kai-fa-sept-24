@@ -41,7 +41,8 @@ public final class HudPanel extends JPanel {
         }
         return "Seed: " + state.getSeed()
                 + "    Steps: " + state.getPlayer().getSteps()
-                + "    Player: (" + state.getPlayer().getX() + ", " + state.getPlayer().getY() + ")";
+                + "    Player: (" + state.getPlayer().getX() + ", " + state.getPlayer().getY() + ")"
+                + "    Inventory: " + state.getInventory().summary();
     }
 
     private String objectiveText() {
