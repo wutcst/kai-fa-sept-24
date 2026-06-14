@@ -24,5 +24,10 @@ public abstract class Command
         this.secondWord = secondWord;
     }
 
+    public void setArgument(String argument)
+    {
+        this.secondWord = argument;
+    }
+
     public abstract boolean execute(Game game);
 }

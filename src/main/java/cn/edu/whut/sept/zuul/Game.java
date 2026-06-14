@@ -16,12 +16,14 @@ package cn.edu.whut.sept.zuul;
 public class Game
 {
     private Parser parser;
-    private Room currentRoom;
+    private Player player;
+    private boolean finished;
 
     public Game()
     {
         createRooms();
         parser = new Parser();
+        finished = false;
     }
 
     private void createRooms()
@@ -49,7 +51,18 @@ public class Game
 
         office.setExit("west", lab);
 
-        currentRoom = outside;  // start game outside
+        libraryItems(outside, theater, pub, lab, office);
+
+        player = new Player("adventurer", outside, 8);
+    }
+
+    private void libraryItems(Room outside, Room theater, Room pub, Room lab, Room office)
+    {
+        outside.addItem(new Item("map", "a campus map with hand-written notes", 1));
+        theater.addItem(new Item("report", "the printed practice report draft", 2));
+        pub.addItem(new Item("coin", "a lucky coin for the final presentation", 1));
+        lab.addItem(new Item("laptop", "a laptop prepared for the project demo", 4));
+        office.addItem(new Item("cookie", "a magic cookie that improves your carrying capacity", 0, 5));
     }
 
     public void play()
@@ -59,13 +72,13 @@ public class Game
         // Enter the main command loop.  Here we repeatedly read commands and
         // execute them until the game is over.
 
-        boolean finished = false;
         while (! finished) {
             Command command = parser.getCommand();
             if(command == null) {
                 System.out.println("I don't understand...");
             } else {
-                finished = command.execute(this);
+                boolean shouldQuit = command.execute(this);
+                finished = finished || shouldQuit;
             }
         }
 
@@ -79,14 +92,124 @@ public class Game
         System.out.println("World of Zuul is a new, incredibly boring adventure game.");
         System.out.println("Type 'help' if you need help.");
         System.out.println();
-        System.out.println(currentRoom.getLongDescription());
+        System.out.println(player.getCurrentRoom().getLongDescription());
     }
 
     public Room getCurrentRoom() {
-        return currentRoom;
+        return player.getCurrentRoom();
     }
 
     public void setCurrentRoom(Room room){
-        this.currentRoom = room;
+        player.teleportTo(room);
+    }
+
+    public Player getPlayer()
+    {
+        return player;
+    }
+
+    public boolean goRoom(String direction)
+    {
+        Room nextRoom = player.getCurrentRoom().getExit(direction);
+        if(nextRoom == null) {
+            return false;
+        }
+
+        player.moveTo(nextRoom);
+        return true;
+    }
+
+    public boolean goBack()
+    {
+        return player.goBack();
+    }
+
+    public TakeResult takeItem(String itemName)
+    {
+        Room room = player.getCurrentRoom();
+        Item item = room.findItem(itemName);
+        if(item == null) {
+            return TakeResult.notFound();
+        }
+
+        if(!player.canCarry(item)) {
+            return TakeResult.tooHeavy(item);
+        }
+
+        Item removed = room.removeItem(itemName);
+        player.take(removed);
+        return TakeResult.taken(removed);
+    }
+
+    public Item dropItem(String itemName)
+    {
+        Item item = player.removeItem(itemName);
+        if(item != null) {
+            player.getCurrentRoom().addItem(item);
+        }
+        return item;
+    }
+
+    public Item eatCookie()
+    {
+        Item cookie = player.removeItem("cookie");
+        if(cookie == null || !cookie.isMagicCookie()) {
+            if(cookie != null) {
+                player.take(cookie);
+            }
+            return null;
+        }
+
+        player.increaseCarryCapacity(cookie.getCapacityBonus());
+        return cookie;
+    }
+
+    public boolean isFinished()
+    {
+        return finished;
+    }
+
+    public static class TakeResult
+    {
+        private final Item item;
+        private final boolean taken;
+        private final boolean tooHeavy;
+
+        private TakeResult(Item item, boolean taken, boolean tooHeavy)
+        {
+            this.item = item;
+            this.taken = taken;
+            this.tooHeavy = tooHeavy;
+        }
+
+        public static TakeResult taken(Item item)
+        {
+            return new TakeResult(item, true, false);
+        }
+
+        public static TakeResult tooHeavy(Item item)
+        {
+            return new TakeResult(item, false, true);
+        }
+
+        public static TakeResult notFound()
+        {
+            return new TakeResult(null, false, false);
+        }
+
+        public Item getItem()
+        {
+            return item;
+        }
+
+        public boolean isTaken()
+        {
+            return taken;
+        }
+
+        public boolean isTooHeavy()
+        {
+            return tooHeavy;
+        }
     }
 }

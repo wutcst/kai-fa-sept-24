@@ -10,9 +10,15 @@ public class CommandWords
     public CommandWords()
     {
         commands = new HashMap<String, Command>();
+        commands.put("back", new BackCommand());
+        commands.put("drop", new DropCommand());
+        commands.put("eat", new EatCommand());
         commands.put("go", new GoCommand());
         commands.put("help", new HelpCommand(this));
+        commands.put("items", new ItemsCommand());
+        commands.put("look", new LookCommand());
         commands.put("quit", new QuitCommand());
+        commands.put("take", new TakeCommand());
     }
 
     public Command get(String word)

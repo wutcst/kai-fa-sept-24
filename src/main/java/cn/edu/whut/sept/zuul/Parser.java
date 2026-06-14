@@ -17,23 +17,25 @@ public class Parser
     {
         String inputLine;   // will hold the full input line
         String word1 = null;
-        String word2 = null;
+        String argument = null;
 
         System.out.print("> ");     // print prompt
 
         inputLine = reader.nextLine();
 
+        inputLine = inputLine.trim();
         Scanner tokenizer = new Scanner(inputLine);
         if(tokenizer.hasNext()) {
             word1 = tokenizer.next();      // get first word
-            if(tokenizer.hasNext()) {
-                word2 = tokenizer.next();      // get second word
+            int argumentStart = word1.length();
+            if(inputLine.length() > argumentStart) {
+                argument = inputLine.substring(argumentStart).trim();
             }
         }
 
         Command command = commands.get(word1);
         if(command != null) {
-            command.setSecondWord(word2);
+            command.setArgument(argument);
         }
         return command;
     }
@@ -43,4 +45,3 @@ public class Parser
         commands.showAll();
     }
 }
-
