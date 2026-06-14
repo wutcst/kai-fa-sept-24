@@ -24,6 +24,8 @@ public class Game
     private boolean finished;
     private List<Room> rooms;
     private Random random;
+    private int moveCount;
+    private int score;
 
     public Game()
     {
@@ -36,6 +38,8 @@ public class Game
         this.random = random;
         parser = new Parser();
         finished = false;
+        moveCount = 0;
+        score = 0;
     }
 
     private void createRooms()
@@ -184,6 +188,7 @@ public class Game
         }
 
         player.moveTo(nextRoom);
+        moveCount++;
         teleportIfNeeded();
         checkWinCondition();
         return true;
@@ -193,6 +198,7 @@ public class Game
     {
         boolean moved = player.goBack();
         if(moved) {
+            moveCount++;
             teleportIfNeeded();
             checkWinCondition();
         }
@@ -213,6 +219,7 @@ public class Game
 
         Item removed = room.removeItem(itemName);
         player.take(removed);
+        awardItemScore(removed);
         return TakeResult.taken(removed);
     }
 
@@ -236,6 +243,7 @@ public class Game
         }
 
         player.increaseCarryCapacity(cookie.getCapacityBonus());
+        score += 5;
         return cookie;
     }
 
@@ -272,6 +280,19 @@ public class Game
         builder.append("\n - Slides: ").append(player.hasItem("slides") ? "ready" : "missing");
         builder.append("\n - Defense pass: ").append(player.hasItem("pass") ? "ready" : "missing");
         builder.append("\n - Final goal: enter the defense classroom with all required materials.");
+        return builder.toString();
+    }
+
+    public String getStatusReport()
+    {
+        StringBuilder builder = new StringBuilder(getQuestStatus());
+        builder.append("\nMoves: ").append(moveCount);
+        builder.append("\nScore: ").append(score);
+        builder.append("\nInventory weight: ")
+                .append(player.getCurrentCarryWeight())
+                .append("/")
+                .append(player.getMaxCarryWeight())
+                .append("kg");
         return builder.toString();
     }
 
@@ -351,11 +372,49 @@ public class Game
     {
         if(player.getCurrentRoom().getId().equals("defense")
                 && hasDefenseMaterials()) {
+            score += 50;
             System.out.println("You enter the defense classroom with every required material.");
             System.out.println(getQuestStatus());
+            System.out.println("Moves: " + moveCount);
+            System.out.println("Score: " + score);
+            System.out.println("Ending rank: " + endingRank());
             System.out.println("The team completes the software engineering practice defense successfully!");
             finished = true;
         }
+    }
+
+    private void awardItemScore(Item item)
+    {
+        if(item == null) {
+            return;
+        }
+
+        if(isRequiredDefenseItem(item.getName())) {
+            score += 10;
+        } else if(item.getName().equals("usb")) {
+            score += 8;
+        } else if(item.getName().equals("coin") || item.getName().equals("flower") || item.getName().equals("rubric")) {
+            score += 3;
+        }
+    }
+
+    private boolean isRequiredDefenseItem(String itemName)
+    {
+        return itemName.equals("report")
+                || itemName.equals("laptop")
+                || itemName.equals("slides")
+                || itemName.equals("pass");
+    }
+
+    private String endingRank()
+    {
+        if(score >= 90 && moveCount <= 10) {
+            return "Excellent";
+        }
+        if(score >= 80 && moveCount <= 16) {
+            return "Qualified";
+        }
+        return "Needs improvement";
     }
 
     public static class TakeResult
