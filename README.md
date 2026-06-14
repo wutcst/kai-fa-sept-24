@@ -1,80 +1,154 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/u1xW62gh)
-# 软件工程实训任务二：小组协同开发
 
-## 任务目的
-* 巩固强化软件编程规范
-* 提高面向对象软件建模与抽象能力
-* 培养小组协同开发能力
-* 掌握基于Maven的软件项目管理机制
-* 掌握基于Github的小组协同开发工具和平台
-* 了解DevOps软件开发流程
+# Campus Defense Zuul
 
-## 任务内容
-* 创建软件开发小组
-* 针对项目开发任务进行小组讨论，确定功能开发需求点 
-* 基于Github中的issue管理功能明确工作任务并为组员分配工作任务
-* 基于小组商定的分支模型进行软件功能开发，并按开发流程进行代码测试、提交、归并和同步
-* 代码提交到远程仓库后，应进行自动化代码格式规范检查和测试以确保功能符合需求设计
-* 完成前述各项任务后，可尝试进行代码自动化打包，自动生成可供执行的工程文件
+Campus Defense Zuul 是基于 `world-of-zuul` 扩展的命令行文字冒险游戏。游戏主题是“软件工程实践答辩”：玩家需要在校园场景中探索房间、收集答辩材料、和 NPC 交流获取线索、通过门禁检查，最终进入答辩教室完成实践答辩。
 
-## 任务要求
-1. 创建软件开发小组
-    * 每个开发小组人数3-4人，推选一人作为组长，负责组织、协调和领导团队开发；
-    * 所有小组成员应按操作步骤在github开发平台上加入同一小组，共用同一代码仓库；
-    
-2. 开展小组讨论，确定功能扩充点
-    * 样例工程“world-of-zuul”具备最基本的程序功能，该项目具有极大的扩展空间，开发小组内可进行沟通讨论，确定系统结构优化需求或功能扩充需求，形成具有完整交互界面和功能逻辑的游戏项目；
-    * 软件开发小组也可不基于“world-of-zuul”的样例代码，自选择新的游戏项目内容进行开发，但要求必须具有完整交互界面和功能逻辑；
+本项目用于“软件工程实训任务二：小组协同开发”，开发过程按 GitHub Issue 拆分、分支开发、PR 合并和 Maven 验证推进。
 
-> 可供参考的结构优化或功能扩充项包括但不限于以下内容：
->
-> 1. 扩展游戏，使得一个房间里可以存放任意数量的物件，每个物件可以有一个描述和一个重量值，玩家进入一个房间后，可以通过“look”命令查看当前房间的信息以及房间内的所有物品信息；
-> 2. 在游戏中实现一个“back”命令，玩家输入该命令后会把玩家带回上一个房间；
-> 3. 在游戏中实现一个更高级的“back”命令，重复使用它就可以逐层回退几个房间，直到把玩家带回到游戏的起点；
-> 4. 在游戏中增加具有传输功能的房间，每当玩家进入这个房间，就会被随机地传输到另一个房间；
-> 5. 在游戏中新建一个独立的Player类用来表示玩家，并实现下列功能需求：
->    * 一个玩家对象应该保存玩家的姓名等基本信息，也应该保存玩家当前所在的房间；
->    * 玩家可以随身携带任意数量的物件，但随身物品的总重量不能操过某个上限值；
->    * 在游戏中增加两个新的命令“take”和“drop”，使得玩家可以拾取房间内的指定物品或丢弃身上携带的某件或全部物品，当拾取新的物件时超过了玩家可携带的重量上限，系统应给出提示；
->    * 在游戏中增加一个新的命令“items”, 可以打印出当前房间内所有的物件及总重量，以及玩家随身携带的所有物件及总重量；
->    * 在某个或某些房间中随机增加一个magic cookie（魔法饼干）物件，并增加一个“eat cookie”命令，如果玩家找到并吃掉魔法饼干，就可以增长玩家的负重能力；
-> 6. 扩充游戏基本架构，使其支持网络多人游戏模式，具备玩家登陆等功能；
-> 7. 为单机或网络版游戏增加图形化用户界面，用过可以通过图形化界面执行游戏功能；
-> 8. 可以为游戏增加数据库功能，用于保存游戏状态和用户设置；
-> 9. ......
+## 游戏目标
 
-3. 基于Github中的issue管理功能明确工作任务并为组员分配工作任务
-    * 将工作任务拆分细化后，明确版本开发计划和里程碑时间节点；
-    
-    * 在github平台创建任务issue并为所有组员分配任务；
-    
-    * 每位组员可以分别承担不同的开发任务，也可以按照小组角色分别承担开发、测试、集成等工作任务；
-    
-    * 工作任务的划分是最终衡量小组成员工作量的重要依据；
-    
-4. 基于小组商定的分支模型进行软件功能开发，并按开发流程进行代码测试、提交、归并和同步
+玩家从校门出发，需要收集以下答辩材料：
 
-    * 小组成员按照小组商定的分支模型在各自的工作分支进行进行开发任务；
-    * 所有源代码应包含规范化标注和必要说明；
-    * 小组成员的个人工作分支也需提交同步到github平台，供教师检查每人的开发工作完成情况；
-    * 提交代码时应按照小组约定的规范格式填写代码提交说明，代码提交说明也将作为评分的重要依据；
+- `report`：软件工程实践报告
+- `laptop`：项目演示电脑
+- `slides`：答辩演示文稿
+- `pass`：答辩通行证
 
-5. 代码提交到远程仓库后，应进行自动化代码格式规范检查和测试以确保功能符合需求设计；
+收齐材料后进入 `defense classroom` 即可通关。游戏会输出任务清单、移动步数、分数和结局评价。
 
-    * 可以利用github平台的actions功能在代码提交时自动触发代码格式检查，对于不符合规范的代码系统将给出提交失败提示；
-    * 可以利用github平台的actions功能在代码提交时自动触发测试用例检查，对于不能通过测试检查的代码系统将给出提交失败提示；
+## 已实现功能
 
-6. 可尝试进行代码自动化打包，自动生成可供执行工程文件
+- 校园地图：校门、讲堂、图书馆、实验室、办公室、花园、传送门、答辩教室等场景。
+- 房间物品：每个房间可以放置物品，物品包含名称、描述和重量。
+- 玩家背包：玩家可以携带物品，背包受负重上限限制。
+- 核心命令：`go`、`look`、`back`、`take`、`drop`、`items`、`eat`、`talk`、`status`、`score`、`help`、`quit`。
+- 多步返回：玩家可以通过 `back` 沿历史路径返回。
+- 魔法饼干：吃掉 `cookie` 后提升负重能力。
+- 传送房间：传送门可随机移动玩家，但需要先取得 `usb`。
+- 任务门禁：答辩教室需要玩家携带完整答辩材料才能进入。
+- NPC 线索：图书馆管理员、实验室助教、讲堂学长、答辩老师提供任务提示。
+- 分数与结局：有效移动计步，关键物品和任务完成计分，通关后输出评价等级。
 
-    * 结合github平台的actions功能和maven编译脚本，在代码通过规范性检查和测试用例后，进行自动化打包，生成可供直接执行的jar文件用于系统发布
+## 命令说明
 
+| 命令 | 示例 | 说明 |
+|---|---|---|
+| `go <direction>` | `go north` | 向指定方向移动 |
+| `look` | `look` | 查看当前房间、出口、物品和 NPC |
+| `back` | `back` | 回到上一个房间 |
+| `take <item>` | `take report` | 拾取当前房间中的物品 |
+| `drop <item>` | `drop coin` | 丢弃背包中的物品 |
+| `items` | `items` | 查看房间物品、背包和负重 |
+| `eat cookie` | `eat cookie` | 吃掉魔法饼干并提升负重 |
+| `talk <npc>` | `talk librarian` | 与当前房间 NPC 对话 |
+| `status` | `status` | 查看任务进度、步数、分数和负重 |
+| `score` | `score` | 同 `status` |
+| `help` | `help` | 查看所有命令 |
+| `quit` | `quit` | 退出游戏 |
 
-## 任务输出
-1. 所有开发任务需在小组代码仓库中完成，所有开发工作成果需在仓库中提交，每个人的工作内容主要凭代码仓库中所体现的工作量进行评判；
-2. 修改README.md文件的内容，作为小组项目的介绍文档，可参照其他开源项目中对README.md文件的写法进行编写；
-3. 每组同学以word文档格式提交纸质的小组实训报告，并在项目根目录下创建一个名称为REPORT.docx/REPORT.pdf的文件作为电子版提交，报告内容应对项目实训过程中包含各工作内容的设计过程及完成情况的说明；
-4. 每小组制作一只5-10分钟的视频对作业成果进行说明展示，并公开发表在bilibili.com上，统一以【武理26软工实践】作为视频标题前缀
-5. 期末时以小组答辩形式进行公开答辩验收；
-6. 允许使用AI进行辅助开发和设计，但需在报告中明确详细说明所使用的AI模型及所辅助完成的开发工作等内容；
+## 运行方式
 
+项目使用 Maven 管理，当前 `pom.xml` 配置 Java 8 编译目标。
 
+编译并运行测试：
+
+```bash
+mvn test
+```
+
+启动游戏：
+
+```bash
+mvn test
+java -cp target/classes cn.edu.whut.sept.zuul.Main
+```
+
+当前 `pom.xml` 尚未配置可执行 jar 的 `Main-Class`，因此 `mvn package` 可以生成 jar，但还不能直接通过 `java -jar target/zuul-1.0-SNAPSHOT.jar` 启动。该工作由 CI/打包 Issue 继续完善。
+
+## 演示脚本
+
+下面的脚本可以走通一条完整答辩流程：
+
+```bash
+mvn test
+printf 'status\ngo north\ntalk librarian\ntake report\ngo south\ngo south\ntalk assistant\ntake laptop\ngo east\ntake pass\ngo west\ngo north\ngo east\ntalk mentor\ntake slides\nscore\ngo east\nquit\n' \
+  | java -cp target/classes cn.edu.whut.sept.zuul.Main
+```
+
+预期结果包括：
+
+- `status` 显示任务清单、步数、分数和负重。
+- NPC 输出线索，例如 `librarian`、`assistant`、`mentor`。
+- 进入答辩教室后输出 `Ending rank: Excellent`。
+
+## 开发流程
+
+本项目按课程要求采用 GitHub 协作流程：
+
+1. 先在 GitHub Issue 中拆分任务。
+2. 每个 Issue 使用独立分支开发，例如 `feat/game-commands`。
+3. 完成后运行 Maven 验证和必要的手动交互脚本。
+4. 创建 Pull Request，在 PR 中关联 Issue 并记录验证结果。
+5. 合并后关闭对应 Issue。
+
+提交说明采用 `type(scope): summary` 风格，例如：
+
+```text
+feat(command): add inventory and navigation commands
+feat(map): expand campus defense adventure
+```
+
+## Issue 与 PR 记录
+
+| Issue | 内容 | PR |
+|---|---|---|
+| [#3](https://github.com/wutcst/kai-fa-zuul/issues/3) | 玩家、物品与房间领域模型 | [#12](https://github.com/wutcst/kai-fa-zuul/pull/12) |
+| [#4](https://github.com/wutcst/kai-fa-zuul/issues/4) | 核心交互命令 | [#13](https://github.com/wutcst/kai-fa-zuul/pull/13) |
+| [#5](https://github.com/wutcst/kai-fa-zuul/issues/5) | 校园地图、任务线入口与胜利条件 | [#14](https://github.com/wutcst/kai-fa-zuul/pull/14) |
+| [#9](https://github.com/wutcst/kai-fa-zuul/issues/9) | 任务系统、门禁解锁与通关流程 | [#15](https://github.com/wutcst/kai-fa-zuul/pull/15) |
+| [#10](https://github.com/wutcst/kai-fa-zuul/issues/10) | NPC 对话与线索系统 | [#16](https://github.com/wutcst/kai-fa-zuul/pull/16) |
+| [#11](https://github.com/wutcst/kai-fa-zuul/issues/11) | 步数、分数与结局评价 | [#17](https://github.com/wutcst/kai-fa-zuul/pull/17) |
+| [#8](https://github.com/wutcst/kai-fa-zuul/issues/8) | README 与报告证据清单 | 当前文档分支 |
+
+待完善工程交付项：
+
+- [#6](https://github.com/wutcst/kai-fa-zuul/issues/6)：补充核心玩法单元测试
+- [#7](https://github.com/wutcst/kai-fa-zuul/issues/7)：添加 Maven 自动测试与可执行打包
+
+## 分工记录
+
+README 中的最终分工应以 GitHub Issue assignee、PR 和 Review 记录为准。目前功能开发主线已形成以下证据：
+
+- 领域模型、命令、地图、任务门禁、NPC 和评分功能均通过独立 Issue/PR 完成。
+- 每个 PR 中记录了 `mvn test` 和对应手动验证命令。
+- 工程交付主线仍需补充 JUnit 测试、CI 和可执行 jar 证据。
+
+## AI 辅助说明模板
+
+课程允许使用 AI 辅助，但报告中需要说明模型和辅助范围。可在报告中按以下格式填写：
+
+```text
+本项目开发过程中使用 AI 工具辅助进行了需求拆分、Issue 规划、部分代码实现建议、README 草稿整理和验证命令设计。核心代码由小组成员基于课程要求审阅、运行、修改和提交。AI 辅助内容均经过人工确认，并通过 Maven 编译或手动流程验证。
+```
+
+## 项目结构
+
+```text
+src/main/java/cn/edu/whut/sept/zuul/
+  Command.java          # 命令抽象类
+  CommandWords.java     # 命令注册表
+  Parser.java           # 命令行输入解析
+  Game.java             # 地图、任务、分数和主流程
+  Room.java             # 房间、出口、物品、NPC
+  Player.java           # 玩家位置、历史路径、背包和负重
+  Item.java             # 物品模型
+  Npc.java              # NPC 模型
+  *Command.java         # 各类命令实现
+```
+
+## 当前限制
+
+- 目前还没有系统化 JUnit 测试，后续由 [#6](https://github.com/wutcst/kai-fa-zuul/issues/6) 补齐。
+- 目前还没有 GitHub Actions 和可执行 jar 配置，后续由 [#7](https://github.com/wutcst/kai-fa-zuul/issues/7) 完成。
+- 目前是命令行文字游戏，没有 GUI、数据库或网络多人模式；这是为了保持两人小组的实现范围可控，并把重点放在面向对象设计和协作流程上。
