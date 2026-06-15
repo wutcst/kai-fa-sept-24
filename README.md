@@ -1,4 +1,5 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/u1xW62gh)
+[![Maven CI](https://github.com/wutcst/kai-fa-campus-dungeon/actions/workflows/maven.yml/badge.svg)](https://github.com/wutcst/kai-fa-campus-dungeon/actions/workflows/maven.yml)
 
 # Campus Dungeon
 
@@ -33,20 +34,43 @@ Run tests:
 mvn test
 ```
 
+Run format checks:
+
+```bash
+mvn checkstyle:check
+```
+
+Build the executable jar:
+
+```bash
+mvn package
+```
+
 Run the graphical game:
 
 ```bash
-mvn -q dependency:build-classpath -Dmdep.outputFile=target/runtime-classpath.txt
-java -cp "target/classes:$(cat target/runtime-classpath.txt)" cn.edu.whut.sept.dungeon.Main
+java -jar target/zuul-1.0-SNAPSHOT-executable.jar
 ```
 
 Run with a custom seed:
 
 ```bash
-java -cp "target/classes:$(cat target/runtime-classpath.txt)" cn.edu.whut.sept.dungeon.Main 20260614
+java -jar target/zuul-1.0-SNAPSHOT-executable.jar 20260614
 ```
 
-The extra runtime classpath is needed because the game uses Gson for JSON save/load. A later packaging task can replace this with an executable jar.
+The executable jar includes runtime dependencies such as Gson for JSON save/load.
+
+## CI
+
+GitHub Actions runs the Maven verification workflow on every push and pull request:
+
+```bash
+mvn test
+mvn checkstyle:check
+mvn package
+```
+
+Successful CI runs upload `target/zuul-1.0-SNAPSHOT-executable.jar` as the `campus-dungeon-executable-jar` artifact. Record the passing Actions run URL or screenshot as report evidence after pushing the branch or opening the PR.
 
 ## Controls
 
@@ -121,6 +145,12 @@ Run:
 
 ```bash
 mvn test
+```
+
+Run the full Maven verification gate:
+
+```bash
+mvn verify
 ```
 
 Current coverage includes:

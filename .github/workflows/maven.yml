@@ -1,0 +1,40 @@
+name: Maven CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Test, Checkstyle, and Package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+          cache: maven
+
+      - name: Run Maven tests
+        run: mvn -B test
+
+      - name: Run Checkstyle
+        run: mvn -B checkstyle:check
+
+      - name: Build executable jar
+        run: mvn -B package
+
+      - name: Upload executable jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: campus-dungeon-executable-jar
+          path: target/*-executable.jar
+          if-no-files-found: error
