@@ -3,6 +3,7 @@
 /.idea/*
 /docs/
 /save/
+/tools/
 
 # 忽略以下文件
 /AGENTS.md
