@@ -45,6 +45,7 @@ public final class GameState {
     private final boolean started;
     private final boolean exited;
     private final boolean saveRequested;
+    private final long tick;
     private final GameStatus status;
     private final PlayerState player;
     private final World world;
@@ -73,11 +74,20 @@ public final class GameState {
                       GameStatus status, PlayerState player, World world, Inventory inventory, List<Item> items,
                       List<Enemy> enemies, List<Npc> npcs, List<Trap> traps, QuestState quest, boolean[][] explored,
                       boolean[][] visible, String message) {
+        this(seed, depth, started, exited, saveRequested, 0L, status, player, world, inventory, items,
+                enemies, npcs, traps, quest, explored, visible, message);
+    }
+
+    private GameState(Long seed, int depth, boolean started, boolean exited, boolean saveRequested, long tick,
+                      GameStatus status, PlayerState player, World world, Inventory inventory, List<Item> items,
+                      List<Enemy> enemies, List<Npc> npcs, List<Trap> traps, QuestState quest, boolean[][] explored,
+                      boolean[][] visible, String message) {
         this.seed = seed;
         this.depth = Math.max(1, depth);
         this.started = started;
         this.exited = exited;
         this.saveRequested = saveRequested;
+        this.tick = Math.max(0L, tick);
         this.status = status == null ? GameStatus.PLAYING : status;
         this.player = player;
         this.world = world;
@@ -137,7 +147,7 @@ public final class GameState {
                                      GameStatus status, PlayerState player, World world, Inventory inventory,
                                      List<Item> items, List<Enemy> enemies, List<Npc> npcs, QuestState quest,
                                      boolean[][] explored, String message) {
-        return new GameState(seed, 1, started, exited, saveRequested, status, player, world,
+        return new GameState(seed, 1, started, exited, saveRequested, 0L, status, player, world,
                 inventory, items, enemies, npcs, Collections.<Trap>emptyList(), quest,
                 explored, world == null ? null : createVisibleFor(world, player),
                 message);
@@ -155,7 +165,15 @@ public final class GameState {
                                      GameStatus status, PlayerState player, World world, Inventory inventory,
                                      List<Item> items, List<Enemy> enemies, List<Npc> npcs, List<Trap> traps,
                                      QuestState quest, boolean[][] explored, String message) {
-        return new GameState(seed, depth, started, exited, saveRequested, status, player, world,
+        return restored(seed, depth, started, exited, saveRequested, 0L, status, player, world, inventory, items,
+                enemies, npcs, traps, quest, explored, message);
+    }
+
+    public static GameState restored(Long seed, int depth, boolean started, boolean exited, boolean saveRequested,
+                                     long tick, GameStatus status, PlayerState player, World world,
+                                     Inventory inventory, List<Item> items, List<Enemy> enemies, List<Npc> npcs,
+                                     List<Trap> traps, QuestState quest, boolean[][] explored, String message) {
+        return new GameState(seed, depth, started, exited, saveRequested, tick, status, player, world,
                 inventory, items, enemies, npcs, traps, quest,
                 explored, world == null ? null : createVisibleFor(world, player),
                 message);
@@ -179,6 +197,10 @@ public final class GameState {
 
     public boolean isSaveRequested() {
         return saveRequested;
+    }
+
+    public long getTick() {
+        return tick;
     }
 
     public GameStatus getStatus() {
@@ -264,18 +286,27 @@ public final class GameState {
     }
 
     public GameState withMessage(String nextMessage) {
-        return new GameState(seed, depth, started, exited, saveRequested, status, player, world,
+        return new GameState(seed, depth, started, exited, saveRequested, tick, status, player, world,
                 inventory, items, enemies, npcs, traps, quest, explored, visible, nextMessage);
     }
 
     public GameState markExited() {
-        return new GameState(seed, depth, started, true, saveRequested, status, player, world,
+        return new GameState(seed, depth, started, true, saveRequested, tick, status, player, world,
                 inventory, items, enemies, npcs, traps, quest, explored, visible, message);
     }
 
     public GameState markSaveRequested() {
-        return new GameState(seed, depth, started, exited, true, status, player, world,
+        return new GameState(seed, depth, started, exited, true, tick, status, player, world,
                 inventory, items, enemies, npcs, traps, quest, explored, visible, message);
+    }
+
+    public GameState tick() {
+        if (!started || world == null || isGameOver() || isCompleted()) {
+            return this;
+        }
+        return new GameState(seed, depth, started, exited, saveRequested, tick + 1, status, player, world,
+                inventory, items, enemies, npcs, traps, quest, explored, visible,
+                "Tick " + (tick + 1) + ".");
     }
 
     public GameState movePlayer(Direction direction) {
@@ -293,12 +324,12 @@ public final class GameState {
             return attackEnemy(turnedPlayer, enemy);
         }
         if (!world.isWalkable(target)) {
-            return new GameState(seed, depth, started, exited, saveRequested, status, turnedPlayer, world,
+            return new GameState(seed, depth, started, exited, saveRequested, tick, status, turnedPlayer, world,
                     inventory, items, enemies, npcs, traps, quest, explored, visible, "Blocked by wall.");
         }
 
         PlayerState movedPlayer = turnedPlayer.moveTo(target);
-        GameState movedState = new GameState(seed, depth, started, exited, saveRequested, status, movedPlayer, world,
+        GameState movedState = new GameState(seed, depth, started, exited, saveRequested, tick, status, movedPlayer, world,
                 inventory, items, enemies, npcs, traps, quest,
                 createExploredFor(world, movedPlayer, explored), createVisibleFor(world, movedPlayer),
                 "Moved " + direction.name() + ".");
@@ -341,7 +372,7 @@ public final class GameState {
                 return withMessage("Defense hall guarded. Defeat the Defense Committee first.");
             }
             if (inventory.containsAll(REPORT, LAPTOP, SLIDES, PASS)) {
-                return new GameState(seed, depth, started, exited, saveRequested, GameStatus.COMPLETED, player, world,
+                return new GameState(seed, depth, started, exited, saveRequested, tick, GameStatus.COMPLETED, player, world,
                         inventory, items, enemies, npcs, traps, quest.withCompleted(), explored, visible,
                         "Defense completed in " + player.getSteps() + " steps. Excellent software engineering practice!");
             }
@@ -358,7 +389,7 @@ public final class GameState {
         int nextDepth = depth + 1;
         World nextWorld = new WorldGenerator().generate(seed + nextDepth * DEPTH_SEED_STEP);
         PlayerState nextPlayer = player.reposition(nextWorld.getSpawnPosition());
-        return new GameState(seed, nextDepth, started, exited, saveRequested, status, nextPlayer, nextWorld,
+        return new GameState(seed, nextDepth, started, exited, saveRequested, tick, status, nextPlayer, nextWorld,
                 inventory, createItems(nextWorld), createEnemies(nextWorld, nextDepth), createNpcs(nextWorld),
                 createTraps(nextWorld, nextDepth), quest,
                 createExploredFor(nextWorld, nextPlayer), createVisibleFor(nextWorld, nextPlayer),
@@ -370,7 +401,7 @@ public final class GameState {
             return withMessage("Game over. Start a new game to try again.");
         }
         if ("pom.xml".equalsIgnoreCase(answer == null ? "" : answer.trim())) {
-            return new GameState(seed, depth, started, exited, saveRequested, status, player, world,
+            return new GameState(seed, depth, started, exited, saveRequested, tick, status, player, world,
                     inventory, items, enemies, npcs, traps, quest.withMavenPuzzleSolved(), explored, visible,
                     "Correct. Maven project configuration lives in pom.xml.");
         }
@@ -390,7 +421,7 @@ public final class GameState {
         if (inventory.contains(COFFEE) && player.getCoffeeBoost() == 0) {
             Inventory nextInventory = inventory.remove(COFFEE);
             PlayerState boostedPlayer = player.withCoffeeBoost(3);
-            return new GameState(seed, depth, started, exited, saveRequested, status, boostedPlayer, world,
+            return new GameState(seed, depth, started, exited, saveRequested, tick, status, boostedPlayer, world,
                     nextInventory, items, enemies, npcs, traps, quest, explored, visible,
                     "Coffee inspiration active. Next attacks gain +3 ATK.");
         }
@@ -400,7 +431,7 @@ public final class GameState {
     private GameState usePotion(String potionId, int amount) {
         Inventory nextInventory = inventory.remove(potionId);
         PlayerState healedPlayer = player.heal(amount);
-        return new GameState(seed, depth, started, exited, saveRequested, status, healedPlayer, world,
+        return new GameState(seed, depth, started, exited, saveRequested, tick, status, healedPlayer, world,
                 nextInventory, items, enemies, npcs, traps, quest, explored, visible,
                 "Used " + potionId + " and restored " + (healedPlayer.getHp() - player.getHp()) + " HP.");
     }
@@ -445,21 +476,21 @@ public final class GameState {
         }
 
         if (nextStatus == GameStatus.GAME_OVER) {
-            return new GameState(seed, depth, started, exited, saveRequested, nextStatus, nextPlayer, world,
+            return new GameState(seed, depth, started, exited, saveRequested, tick, nextStatus, nextPlayer, world,
                     inventory, items, appendRemainingEnemies(nextEnemies), npcs, traps, quest, explored, visible,
                     joinedTurnMessage(events, "Game over. HP reached 0."));
         }
         if (events.isEmpty() && sameEnemyPositions(enemies, nextEnemies)) {
             return this;
         }
-        return new GameState(seed, depth, started, exited, saveRequested, status, nextPlayer, world,
+        return new GameState(seed, depth, started, exited, saveRequested, tick, status, nextPlayer, world,
                 inventory, items, nextEnemies, npcs, traps, quest, explored, visible,
                 joinedTurnMessage(events, message));
     }
 
     private GameState withPlayerAfterDamage(PlayerState damagedPlayer, String nextMessage) {
         GameStatus nextStatus = damagedPlayer.getHp() <= 0 ? GameStatus.GAME_OVER : status;
-        return new GameState(seed, depth, started, exited, saveRequested, nextStatus, damagedPlayer, world,
+        return new GameState(seed, depth, started, exited, saveRequested, tick, nextStatus, damagedPlayer, world,
                 inventory, items, enemies, npcs, traps, quest, explored, visible, nextMessage);
     }
 
@@ -544,7 +575,7 @@ public final class GameState {
         } else {
             nextMessage = "Trap triggered.";
         }
-        return new GameState(seed, depth, started, exited, saveRequested, nextStatus, nextPlayer, world,
+        return new GameState(seed, depth, started, exited, saveRequested, tick, nextStatus, nextPlayer, world,
                 inventory, items, enemies, npcs, nextTraps, quest,
                 createExploredFor(world, nextPlayer, explored), createVisibleFor(world, nextPlayer), nextMessage);
     }
@@ -570,7 +601,7 @@ public final class GameState {
                 nextMessage = "Defeated the Defense Committee. Final defense is ready for submission.";
             }
         }
-        return new GameState(seed, depth, started, exited, saveRequested, status, nextPlayer, world,
+        return new GameState(seed, depth, started, exited, saveRequested, tick, status, nextPlayer, world,
                 inventory, items, nextEnemies, npcs, traps, quest, explored, visible, nextMessage);
     }
 
@@ -713,7 +744,7 @@ public final class GameState {
             nextPlayer = player.equipArmor(item.getId(), armorBonus(item.getId()));
             nextMessage = "Equipped " + item.getName() + ". DEF is now " + nextPlayer.getDef() + ".";
         }
-        return new GameState(seed, depth, started, exited, saveRequested, status, nextPlayer, world,
+        return new GameState(seed, depth, started, exited, saveRequested, tick, status, nextPlayer, world,
                 nextInventory, nextItems, enemies, npcs, traps, quest, explored, visible, nextMessage);
     }
 
@@ -736,7 +767,7 @@ public final class GameState {
                 return withMessage("Assistant: Course puzzle - what is Maven's configuration file? Use !answer(pom.xml).");
             }
             Inventory nextInventory = inventory.add(LAPTOP).add(SLIDES);
-            return new GameState(seed, depth, started, exited, saveRequested, status, player, world,
+            return new GameState(seed, depth, started, exited, saveRequested, tick, status, player, world,
                     nextInventory, items, enemies, npcs, traps, quest.withSlidesExported(), explored, visible,
                     "Assistant: USB accepted. Laptop ready and slides exported.");
         }
@@ -753,7 +784,7 @@ public final class GameState {
     }
 
     private GameState grantItem(String itemId, String nextMessage, QuestState nextQuest) {
-        return new GameState(seed, depth, started, exited, saveRequested, status, player, world,
+        return new GameState(seed, depth, started, exited, saveRequested, tick, status, player, world,
                 inventory.add(itemId), items, enemies, npcs, traps, nextQuest, explored, visible, nextMessage);
     }
 

@@ -30,11 +30,12 @@ public class SaveManagerTest {
         File saveFile = saveFile("position");
         SaveManager saveManager = new SaveManager(saveFile);
 
-        GameState saved = new GameEngine(saveManager).playWithInputString("n20260614sdd:q").getState();
+        GameState saved = new GameEngine(saveManager).playWithInputString("n20260614sdd!tick(4):q").getState();
         GameState loaded = new GameEngine(saveManager).playWithInputString("o").getState();
 
         assertTrue(saveFile.exists());
         assertEquals(saved.getSeed(), loaded.getSeed());
+        assertEquals(4L, loaded.getTick());
         assertEquals(saved.getPlayer().getX(), loaded.getPlayer().getX());
         assertEquals(saved.getPlayer().getY(), loaded.getPlayer().getY());
         assertEquals(saved.getPlayer().getDirection(), loaded.getPlayer().getDirection());
@@ -52,9 +53,10 @@ public class SaveManagerTest {
         File saveFile = saveFile("world");
         SaveManager saveManager = new SaveManager(saveFile);
 
-        GameState saved = new GameEngine(saveManager).playWithInputString("n20260614sdd:q").getState();
+        GameState saved = new GameEngine(saveManager).playWithInputString("n20260614sdd!tick(2):q").getState();
         GameState loaded = new GameEngine(saveManager).playWithInputString("o").getState();
 
+        assertEquals(2L, loaded.getTick());
         assertEquals(saved.getWorld().toTileString(), loaded.getWorld().toTileString());
         assertEquals(saved.getWorld().getDefenseHallPosition(), loaded.getWorld().getDefenseHallPosition());
         assertEquals(saved.getWorld().getStairsPosition(), loaded.getWorld().getStairsPosition());
