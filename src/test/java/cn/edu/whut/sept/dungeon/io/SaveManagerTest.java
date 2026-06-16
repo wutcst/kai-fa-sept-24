@@ -12,6 +12,7 @@ import cn.edu.whut.sept.dungeon.entity.Trap;
 import cn.edu.whut.sept.dungeon.projectile.ProjectileOwner;
 import cn.edu.whut.sept.dungeon.room.RoomStatus;
 import cn.edu.whut.sept.dungeon.world.Position;
+import cn.edu.whut.sept.dungeon.world.Room;
 import cn.edu.whut.sept.dungeon.world.World;
 import org.junit.Test;
 
@@ -67,6 +68,24 @@ public class SaveManagerTest {
         assertEquals(VisibilityState.VISIBLE,
                 loaded.getVisibilityState(loaded.getPlayer().getX(), loaded.getPlayer().getY()));
         assertEquals("Loaded saved game.", loaded.getMessage());
+    }
+
+    @Test
+    public void saveAndLoadRestoresExploredRoomMemory() {
+        File saveFile = saveFile("room-fog");
+        SaveManager saveManager = new SaveManager(saveFile);
+        GameState start = new GameEngine(saveManager).playWithInputString("n123s").getState();
+        Room startRoom = start.getWorld().getRooms().get(start.currentRoomState().getId());
+        Room targetRoom = firstDifferentReachableRoom(start);
+        GameState moved = stateAfterPath(start, targetRoom.getCenter());
+
+        saveManager.save(moved);
+        GameState loaded = new GameEngine(saveManager).playWithInputString("o").getState();
+
+        assertEquals(VisibilityState.SEEN,
+                loaded.getVisibilityState(startRoom.getX(), startRoom.getY()));
+        assertEquals(VisibilityState.VISIBLE,
+                loaded.getVisibilityState(targetRoom.getX(), targetRoom.getY()));
     }
 
     @Test
@@ -374,6 +393,17 @@ public class SaveManagerTest {
             throw new AssertionError("Could not descend to depth " + targetDepth + ": " + current.getMessage());
         }
         return current;
+    }
+
+    private Room firstDifferentReachableRoom(GameState state) {
+        int currentRoomId = state.currentRoomState().getId();
+        for (int i = 0; i < state.getWorld().getRooms().size(); i++) {
+            Room room = state.getWorld().getRooms().get(i);
+            if (i != currentRoomId && state.getWorld().isReachable(state.getPlayer().getPosition(), room.getCenter())) {
+                return room;
+            }
+        }
+        throw new AssertionError("Could not find another reachable room.");
     }
 
     private GameState defeatEnemy(GameState state, String enemyId) {

@@ -10,6 +10,7 @@ import cn.edu.whut.sept.dungeon.entity.Item;
 import cn.edu.whut.sept.dungeon.entity.Npc;
 import cn.edu.whut.sept.dungeon.entity.Trap;
 import cn.edu.whut.sept.dungeon.world.Position;
+import cn.edu.whut.sept.dungeon.world.Room;
 import cn.edu.whut.sept.dungeon.world.World;
 import org.junit.Test;
 
@@ -37,6 +38,17 @@ public class TileRendererTest {
     }
 
     @Test
+    public void rendererDoesNotRevealEnemiesInUnexploredRooms() {
+        GameState state = new GameEngine().playWithInputString("n123s").getState();
+        TileRenderer renderer = new TileRenderer();
+        Enemy hiddenEnemy = firstUnseenEnemy(state);
+
+        assertEquals(TileRenderer.UNEXPLORED_COLOR,
+                renderer.colorFor(state, hiddenEnemy.getPosition().getX(), hiddenEnemy.getPosition().getY()));
+        assertEquals("", renderer.glyphFor(state, hiddenEnemy.getPosition().getX(), hiddenEnemy.getPosition().getY()));
+    }
+
+    @Test
     public void rendererDarkensSeenTilesOutsideCurrentVision() {
         GameEngine engine = new GameEngine();
         engine.handleInput(InputCommand.newGame(123L));
@@ -45,6 +57,16 @@ public class TileRendererTest {
         TileRenderer renderer = new TileRenderer();
 
         assertEquals(TileRenderer.SEEN_FLOOR_COLOR, renderer.colorFor(state, oldPosition.getX(), oldPosition.getY()));
+    }
+
+    @Test
+    public void rendererDarkensExploredRoomAfterLeavingIt() {
+        GameState start = new GameEngine().playWithInputString("n123s").getState();
+        RoomVisit visit = enterDifferentRoom(start);
+        TileRenderer renderer = new TileRenderer();
+
+        assertEquals(TileRenderer.SEEN_FLOOR_COLOR,
+                renderer.colorFor(visit.state, visit.previousRoom.getX(), visit.previousRoom.getY()));
     }
 
     @Test
@@ -131,6 +153,28 @@ public class TileRendererTest {
             state = engine.handleInput(InputCommand.fromKey(path.charAt(i)));
         }
         return state;
+    }
+
+    private Enemy firstUnseenEnemy(GameState state) {
+        for (Enemy enemy : state.getEnemies()) {
+            if (state.getVisibilityState(enemy.getPosition().getX(), enemy.getPosition().getY())
+                    == VisibilityState.UNSEEN) {
+                return enemy;
+            }
+        }
+        throw new AssertionError("Could not find an unseen enemy.");
+    }
+
+    private RoomVisit enterDifferentRoom(GameState state) {
+        Room currentRoom = state.getWorld().getRooms().get(state.currentRoomState().getId());
+        for (int i = 0; i < state.getWorld().getRooms().size(); i++) {
+            Room room = state.getWorld().getRooms().get(i);
+            if (!room.equals(currentRoom)
+                    && state.getWorld().isReachable(state.getPlayer().getPosition(), room.getCenter())) {
+                return new RoomVisit(stateAfterPath(state, room.getCenter()), currentRoom);
+            }
+        }
+        throw new AssertionError("Could not find a different reachable room.");
     }
 
     private String pathBeyondVision(GameState state) {
@@ -330,6 +374,16 @@ public class TileRendererTest {
         private PathNode(Position position, String path) {
             this.position = position;
             this.path = path;
+        }
+    }
+
+    private static final class RoomVisit {
+        private final GameState state;
+        private final Room previousRoom;
+
+        private RoomVisit(GameState state, Room previousRoom) {
+            this.state = state;
+            this.previousRoom = previousRoom;
         }
     }
 }

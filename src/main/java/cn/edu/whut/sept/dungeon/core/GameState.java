@@ -1304,13 +1304,13 @@ public final class GameState {
 
     private static boolean[][] createVisibleFor(World world, PlayerState player) {
         boolean[][] nextVisible = new boolean[world.getHeight()][world.getWidth()];
-        markVision(world, player, nextVisible);
+        markRoomOrCorridorVision(world, player, nextVisible);
         return nextVisible;
     }
 
     private static boolean[][] createExploredFor(World world, PlayerState player) {
         boolean[][] nextExplored = new boolean[world.getHeight()][world.getWidth()];
-        markVision(world, player, nextExplored);
+        markRoomOrCorridorVision(world, player, nextExplored);
         return nextExplored;
     }
 
@@ -1319,8 +1319,27 @@ public final class GameState {
         if (nextExplored == null) {
             nextExplored = new boolean[world.getHeight()][world.getWidth()];
         }
-        markVision(world, player, nextExplored);
+        markRoomOrCorridorVision(world, player, nextExplored);
         return nextExplored;
+    }
+
+    private static void markRoomOrCorridorVision(World world, PlayerState player, boolean[][] target) {
+        int roomId = roomIdAt(world, player.getPosition());
+        if (roomId >= 0) {
+            markRoomVision(world.getRooms().get(roomId), target);
+            return;
+        }
+        markVision(world, player, target);
+    }
+
+    private static void markRoomVision(Room room, boolean[][] target) {
+        for (int y = room.getY(); y <= room.getBottom(); y++) {
+            for (int x = room.getX(); x <= room.getRight(); x++) {
+                if (y >= 0 && y < target.length && x >= 0 && x < target[y].length) {
+                    target[y][x] = true;
+                }
+            }
+        }
     }
 
     private static void markVision(World world, PlayerState player, boolean[][] target) {
@@ -1331,6 +1350,19 @@ public final class GameState {
                 }
             }
         }
+    }
+
+    private static int roomIdAt(World world, Position position) {
+        if (world == null || position == null) {
+            return -1;
+        }
+        for (int i = 0; i < world.getRooms().size(); i++) {
+            Room room = world.getRooms().get(i);
+            if (room.contains(position)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private static boolean isMarked(boolean[][] grid, int x, int y) {

@@ -457,6 +457,31 @@ public class GameEngineTest {
     }
 
     @Test
+    public void currentRoomIsFullyVisibleWithRoomFog() {
+        GameState state = new GameEngine().playWithInputString("n123s").getState();
+        Room currentRoom = state.getWorld().getRooms().get(state.currentRoomState().getId());
+
+        assertEquals(VisibilityState.VISIBLE,
+                state.getVisibilityState(currentRoom.getX(), currentRoom.getY()));
+        assertEquals(VisibilityState.VISIBLE,
+                state.getVisibilityState(currentRoom.getRight(), currentRoom.getBottom()));
+    }
+
+    @Test
+    public void exploredRoomIsRememberedAfterEnteringAnotherRoom() {
+        GameState start = new GameEngine().playWithInputString("n123s").getState();
+        Room startRoom = start.getWorld().getRooms().get(start.currentRoomState().getId());
+        Room targetRoom = firstDifferentReachableRoom(start);
+
+        GameState moved = stateAfterPath(start, targetRoom.getCenter());
+
+        assertEquals(VisibilityState.SEEN,
+                moved.getVisibilityState(startRoom.getX(), startRoom.getY()));
+        assertEquals(VisibilityState.VISIBLE,
+                moved.getVisibilityState(targetRoom.getX(), targetRoom.getY()));
+    }
+
+    @Test
     public void playerCanPickUpItemAndViewInventory() {
         GameEngine engine = new GameEngine();
         engine.handleInput(InputCommand.newGame(123L));
@@ -1121,6 +1146,17 @@ public class GameEngineTest {
             }
         }
         throw new AssertionError("Could not find adjacent room tile for " + target);
+    }
+
+    private Room firstDifferentReachableRoom(GameState state) {
+        int currentRoomId = state.currentRoomState().getId();
+        for (int i = 0; i < state.getWorld().getRooms().size(); i++) {
+            Room room = state.getWorld().getRooms().get(i);
+            if (i != currentRoomId && state.getWorld().isReachable(state.getPlayer().getPosition(), room.getCenter())) {
+                return room;
+            }
+        }
+        throw new AssertionError("Could not find another reachable room.");
     }
 
     private GameState tryLeaveCurrentRoom(GameState state) {
