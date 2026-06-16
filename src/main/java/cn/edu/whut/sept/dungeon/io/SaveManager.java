@@ -80,6 +80,7 @@ public final class SaveManager {
         boolean started;
         boolean exited;
         boolean saveRequested;
+        long tick;
         GameStatus status;
         PlayerData player;
         WorldData world;
@@ -97,6 +98,7 @@ public final class SaveManager {
             data.started = state.isStarted();
             data.exited = state.isExited();
             data.saveRequested = state.isSaveRequested();
+            data.tick = state.getTick();
             data.status = state.getStatus();
             data.player = PlayerData.from(state.getPlayer());
             data.world = state.getWorld() == null ? null : WorldData.from(state.getWorld());
@@ -138,7 +140,7 @@ public final class SaveManager {
                     ? (restoredQuest.isCompleted() ? GameStatus.COMPLETED : GameStatus.PLAYING)
                     : status;
             int restoredDepth = depth <= 0 ? 1 : depth;
-            return GameState.restored(seed, restoredDepth, started, exited, saveRequested, restoredStatus, restoredPlayer, restoredWorld,
+            return GameState.restored(seed, restoredDepth, started, exited, saveRequested, tick, restoredStatus, restoredPlayer, restoredWorld,
                     Inventory.of(inventory), restoredItems, restoredEnemies, restoredNpcs, restoredTraps, restoredQuest,
                     decodeBooleans(explored), message);
         }

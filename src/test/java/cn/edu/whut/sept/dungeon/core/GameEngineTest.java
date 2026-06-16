@@ -71,6 +71,33 @@ public class GameEngineTest {
     }
 
     @Test
+    public void replayTickCommandAdvancesDeterministicTicks() {
+        GameState state = new GameEngine().playWithInputString("n123s!tick(3)").getState();
+
+        assertEquals(3L, state.getTick());
+        assertEquals("Tick 3.", state.getMessage());
+    }
+
+    @Test
+    public void invalidReplayTickCountLeavesStateAndMessage() {
+        GameState state = new GameEngine().playWithInputString("n123s!tick(nope)").getState();
+
+        assertEquals(0L, state.getTick());
+        assertEquals("Invalid tick count.", state.getMessage());
+    }
+
+    @Test
+    public void tickDoesNotAdvanceBeforeGameStartsOrAfterGameOver() {
+        GameEngine engine = new GameEngine();
+        GameState initial = engine.tick();
+        engine.handleInput(InputCommand.newGame(123L));
+        GameState defeated = engine.getState().damagePlayer(100);
+
+        assertEquals(0L, initial.getTick());
+        assertEquals(0L, defeated.tick().getTick());
+    }
+
+    @Test
     public void playerMovesOnFloor() {
         GameState initial = new GameEngine().playWithInputString("n123s").getState();
 

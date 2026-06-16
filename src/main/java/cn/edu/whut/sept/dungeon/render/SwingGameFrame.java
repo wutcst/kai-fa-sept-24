@@ -7,18 +7,26 @@ import java.awt.BorderLayout;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import javax.swing.JFrame;
+import javax.swing.Timer;
 import javax.swing.WindowConstants;
 
 public final class SwingGameFrame extends JFrame {
+    private static final int TICK_DELAY_MILLIS = 50;
+
     private final GameEngine engine;
     private final TilePanel tilePanel;
     private final HudPanel hudPanel;
+    private final Timer timer;
 
     public SwingGameFrame(GameEngine engine) {
         super("Campus Dungeon");
         this.engine = engine;
         this.tilePanel = new TilePanel();
         this.hudPanel = new HudPanel();
+        this.timer = new Timer(TICK_DELAY_MILLIS, event -> {
+            engine.tick();
+            refresh();
+        });
 
         setLayout(new BorderLayout());
         add(tilePanel, BorderLayout.CENTER);
@@ -33,6 +41,7 @@ public final class SwingGameFrame extends JFrame {
 
     public void showWindow() {
         setVisible(true);
+        timer.start();
         requestFocusInWindow();
     }
 

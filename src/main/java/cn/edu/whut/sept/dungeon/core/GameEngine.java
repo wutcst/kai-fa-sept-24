@@ -51,6 +51,14 @@ public class GameEngine {
                     continue;
                 }
             }
+            if (current == '!' && input.startsWith("!tick(", index)) {
+                int closeIndex = input.indexOf(')', index);
+                if (closeIndex > index) {
+                    advanceTicks(parseTickCount(input.substring(index + 6, closeIndex)));
+                    index = closeIndex + 1;
+                    continue;
+                }
+            }
 
             handleInput(InputCommand.fromKey(current));
             index++;
@@ -114,6 +122,26 @@ public class GameEngine {
 
     public GameState getState() {
         return state;
+    }
+
+    public GameState tick() {
+        state = state.tick();
+        return state;
+    }
+
+    private void advanceTicks(int count) {
+        for (int i = 0; i < count; i++) {
+            tick();
+        }
+    }
+
+    private int parseTickCount(String text) {
+        try {
+            return Math.max(0, Integer.parseInt(text.trim()));
+        } catch (NumberFormatException exception) {
+            state = state.withMessage("Invalid tick count.");
+            return 0;
+        }
     }
 
     private SeedParseResult parseSeed(String input, int start) {
