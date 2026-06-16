@@ -9,6 +9,7 @@ import cn.edu.whut.sept.dungeon.core.VisibilityState;
 import cn.edu.whut.sept.dungeon.entity.Enemy;
 import cn.edu.whut.sept.dungeon.entity.Item;
 import cn.edu.whut.sept.dungeon.entity.Trap;
+import cn.edu.whut.sept.dungeon.room.RoomStatus;
 import cn.edu.whut.sept.dungeon.world.Position;
 import cn.edu.whut.sept.dungeon.world.World;
 import org.junit.Test;
@@ -161,6 +162,21 @@ public class SaveManagerTest {
         assertEquals(Direction.EAST, loaded.getProjectiles().get(0).getDirection());
         assertEquals(fired.getProjectiles().get(0).getRemainingRange(),
                 loaded.getProjectiles().get(0).getRemainingRange());
+    }
+
+    @Test
+    public void saveAndLoadRestoresRoomState() {
+        File saveFile = saveFile("rooms");
+        SaveManager saveManager = new SaveManager(saveFile);
+        GameState state = GameState.newGame(123L);
+        Enemy enemy = state.getEnemies().get(0);
+        GameState activeRoom = stateAfterPath(state, adjacentWalkableTile(state, enemy.getPosition()));
+
+        saveManager.save(activeRoom);
+        GameState loaded = new GameEngine(saveManager).playWithInputString("o").getState();
+
+        assertEquals(RoomStatus.ACTIVE, loaded.currentRoomState().getStatus());
+        assertEquals(activeRoom.currentRoomState().getId(), loaded.currentRoomState().getId());
     }
 
     @Test
@@ -317,18 +333,43 @@ public class SaveManagerTest {
     }
 
     private GameState stateAfterPath(GameState state, Position target) {
-        String path = pathTo(state, target);
         GameState current = state;
-        for (int i = 0; i < path.length(); i++) {
-            current = current.movePlayer(InputCommand.fromKey(path.charAt(i)).getDirection());
+        for (int attempt = 0; attempt < 20 && !current.getPlayer().getPosition().equals(target); attempt++) {
+            String path = pathTo(current, target);
+            boolean interruptedByCombatRoom = false;
+            for (int i = 0; i < path.length(); i++) {
+                Position before = current.getPlayer().getPosition();
+                current = current.movePlayer(InputCommand.fromKey(path.charAt(i)).getDirection());
+                if (current.getPlayer().getPosition().equals(target)) {
+                    return current;
+                }
+                if (before.equals(current.getPlayer().getPosition())
+                        && "Combat room locked. Defeat all enemies first.".equals(current.getMessage())) {
+                    current = clearCurrentCombatRoom(current);
+                    interruptedByCombatRoom = true;
+                    break;
+                }
+            }
+            if (!interruptedByCombatRoom && !current.getPlayer().getPosition().equals(target)) {
+                break;
+            }
+        }
+        if (!current.getPlayer().getPosition().equals(target)) {
+            throw new AssertionError("Could not reach " + target + " from " + current.getPlayer().getPosition()
+                    + ": " + current.getMessage());
         }
         return current;
     }
 
     private GameState descendToDepth(GameState state, int targetDepth) {
         GameState current = state;
-        while (current.getDepth() < targetDepth) {
+        int attempts = 0;
+        while (current.getDepth() < targetDepth && attempts < 10) {
+            attempts++;
             current = stateAfterPath(current, current.getWorld().getStairsPosition()).interact();
+        }
+        if (current.getDepth() < targetDepth) {
+            throw new AssertionError("Could not descend to depth " + targetDepth + ": " + current.getMessage());
         }
         return current;
     }
@@ -340,6 +381,18 @@ public class SaveManagerTest {
         Direction direction = directionBetween(adjacent, enemy.getPosition());
         while (findEnemy(current, enemyId).isAlive()) {
             current = current.movePlayer(direction);
+        }
+        return current;
+    }
+
+    private GameState clearCurrentCombatRoom(GameState state) {
+        GameState current = state;
+        int roomId = state.currentRoomState() == null ? -1 : state.currentRoomState().getId();
+        for (Enemy enemy : state.getEnemies()) {
+            if (enemy.isAlive() && current.roomStateAt(enemy.getPosition()) != null
+                    && current.roomStateAt(enemy.getPosition()).getId() == roomId) {
+                current = defeatEnemy(current, enemy.getId());
+            }
         }
         return current;
     }

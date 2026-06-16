@@ -11,6 +11,9 @@ import cn.edu.whut.sept.dungeon.entity.Trap;
 import cn.edu.whut.sept.dungeon.projectile.Projectile;
 import cn.edu.whut.sept.dungeon.projectile.ProjectileOwner;
 import cn.edu.whut.sept.dungeon.quest.QuestState;
+import cn.edu.whut.sept.dungeon.room.RoomState;
+import cn.edu.whut.sept.dungeon.room.RoomStatus;
+import cn.edu.whut.sept.dungeon.room.RoomType;
 import cn.edu.whut.sept.dungeon.world.Corridor;
 import cn.edu.whut.sept.dungeon.world.Position;
 import cn.edu.whut.sept.dungeon.world.Room;
@@ -89,6 +92,7 @@ public final class SaveManager {
         List<String> inventory;
         QuestData quest;
         EntityData entities;
+        List<RoomStateData> rooms;
         List<String> explored;
         String message;
 
@@ -106,6 +110,10 @@ public final class SaveManager {
             data.world = state.getWorld() == null ? null : WorldData.from(state.getWorld());
             data.inventory = state.getInventory().getItemIds();
             data.quest = QuestData.from(state.getQuest());
+            data.rooms = new ArrayList<RoomStateData>();
+            for (RoomState room : state.getRooms()) {
+                data.rooms.add(RoomStateData.from(room));
+            }
             data.entities = new EntityData();
             data.entities.items = new ArrayList<ItemData>();
             for (Item item : state.getItems()) {
@@ -144,6 +152,7 @@ public final class SaveManager {
                     : entities.toProjectiles();
             List<Npc> restoredNpcs = entities == null ? Collections.<Npc>emptyList() : entities.toNpcs();
             List<Trap> restoredTraps = entities == null ? Collections.<Trap>emptyList() : entities.toTraps();
+            List<RoomState> restoredRooms = toRoomStates();
             QuestState restoredQuest = quest == null ? QuestState.initial() : quest.toQuestState();
             GameStatus restoredStatus = status == null
                     ? (restoredQuest.isCompleted() ? GameStatus.COMPLETED : GameStatus.PLAYING)
@@ -151,11 +160,42 @@ public final class SaveManager {
             int restoredDepth = depth <= 0 ? 1 : depth;
             return GameState.restored(seed, restoredDepth, started, exited, saveRequested, tick, restoredStatus,
                     restoredPlayer, restoredWorld, Inventory.of(inventory), restoredItems, restoredEnemies,
-                    restoredProjectiles, restoredNpcs, restoredTraps, restoredQuest, decodeBooleans(explored), message);
+                    restoredProjectiles, restoredRooms, restoredNpcs, restoredTraps, restoredQuest,
+                    decodeBooleans(explored), message);
         }
 
         boolean isLoadable() {
             return player != null && (world == null || world.isLoadable());
+        }
+
+        private List<RoomState> toRoomStates() {
+            List<RoomState> result = new ArrayList<RoomState>();
+            if (rooms != null) {
+                for (RoomStateData room : rooms) {
+                    result.add(room.toRoomState());
+                }
+            }
+            return result;
+        }
+    }
+
+    static final class RoomStateData {
+        int id;
+        RoomType type;
+        RoomStatus status;
+        boolean rewardCreated;
+
+        static RoomStateData from(RoomState room) {
+            RoomStateData data = new RoomStateData();
+            data.id = room.getId();
+            data.type = room.getType();
+            data.status = room.getStatus();
+            data.rewardCreated = room.isRewardCreated();
+            return data;
+        }
+
+        RoomState toRoomState() {
+            return new RoomState(id, type, status, rewardCreated);
         }
     }
 

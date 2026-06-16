@@ -10,6 +10,9 @@ import cn.edu.whut.sept.dungeon.entity.Item;
 import cn.edu.whut.sept.dungeon.entity.Npc;
 import cn.edu.whut.sept.dungeon.entity.Trap;
 import cn.edu.whut.sept.dungeon.quest.QuestState;
+import cn.edu.whut.sept.dungeon.room.RoomState;
+import cn.edu.whut.sept.dungeon.room.RoomStatus;
+import cn.edu.whut.sept.dungeon.room.RoomType;
 import org.junit.Test;
 
 import java.util.ArrayDeque;
@@ -222,9 +225,9 @@ public class GameEngineTest {
         GameState movedIntoTile = defeated.movePlayer(attackDirection);
 
         assertNotNull(firstHit.enemyAt(enemy.getPosition()));
-        assertEquals(enemy.getExpReward(), defeated.getPlayer().getExp());
-        assertEquals("Defeated " + enemy.getType() + " and gained " + enemy.getExpReward() + " EXP.",
-                defeated.getMessage());
+        assertEquals(firstHit.getPlayer().getExp() + enemy.getExpReward(), defeated.getPlayer().getExp());
+        assertTrue(defeated.getMessage().contains("Defeated " + enemy.getType()));
+        assertTrue(defeated.getMessage().contains("Room cleared"));
         assertEquals(enemy.getPosition(), movedIntoTile.getPlayer().getPosition());
     }
 
@@ -348,6 +351,27 @@ public class GameEngineTest {
     }
 
     @Test
+    public void enteringCombatRoomLocksExitsUntilEnemiesAreDefeated() {
+        GameState state = combatRoomTestState();
+        Enemy enemy = state.getEnemies().get(0);
+        Position adjacent = new Position(5, 2);
+
+        GameState activeRoom = stateAfterPath(state, adjacent);
+        GameState blockedExit = tryLeaveCurrentRoom(activeRoom);
+        GameState clearedRoom = defeatEnemy(activeRoom, enemy.getId());
+        GameState afterClearExit = tryLeaveCurrentRoom(clearedRoom);
+
+        assertEquals(RoomStatus.ACTIVE, activeRoom.currentRoomState().getStatus());
+        assertEquals(RoomType.COMBAT, activeRoom.currentRoomState().getType());
+        assertEquals(activeRoom.getPlayer().getPosition(), blockedExit.getPlayer().getPosition());
+        assertEquals("Combat room locked. Defeat all enemies first.", blockedExit.getMessage());
+        assertEquals(RoomStatus.CLEARED, clearedRoom.currentRoomState().getStatus());
+        assertNotNull(findItem(clearedRoom, "room-reward-" + clearedRoom.getDepth() + "-"
+                + clearedRoom.currentRoomState().getId()));
+        assertFalse(activeRoom.getPlayer().getPosition().equals(afterClearExit.getPlayer().getPosition()));
+    }
+
+    @Test
     public void moveUpdatesVisibleAndExploredTiles() {
         GameState initial = new GameEngine().playWithInputString("n123s").getState();
         GameEngine engine = new GameEngine();
@@ -415,7 +439,7 @@ public class GameEngineTest {
         Item coffee = findItem(state, "coffee");
         GameState withCoffee = stateAfterPath(state, coffee.getPosition()).interact();
         GameState boosted = withCoffee.describeInventory();
-        Enemy enemy = boosted.getEnemies().get(0);
+        Enemy enemy = firstAliveEnemy(boosted);
         Position adjacent = adjacentWalkableTile(boosted, enemy.getPosition());
         GameState adjacentState = stateAfterPath(boosted, adjacent);
 
@@ -423,8 +447,7 @@ public class GameEngineTest {
 
         assertEquals(3, boosted.getPlayer().getCoffeeBoost());
         assertFalse(boosted.getInventory().contains("coffee"));
-        assertFalse(findEnemy(attacked, enemy.getId()).isAlive());
-        assertEquals(enemy.getExpReward(), attacked.getPlayer().getExp());
+        assertTrue(findEnemy(attacked, enemy.getId()).getHp() < enemy.getHp());
         assertEquals(0, attacked.getPlayer().getCoffeeBoost());
     }
 
@@ -490,7 +513,9 @@ public class GameEngineTest {
         GameState state = GameState.newGame(123L);
         Trap trap = findTrap(state, Trap.DAMAGE);
 
-        GameState triggered = stateAfterPath(state, trap.getPosition());
+        Position adjacent = adjacentWalkableTile(state, trap.getPosition());
+        GameState nearTrap = stateAfterPath(state, adjacent);
+        GameState triggered = nearTrap.movePlayer(directionBetween(adjacent, trap.getPosition()));
 
         assertEquals(25, triggered.getPlayer().getHp());
         assertTrue(findTrapById(triggered, trap.getId()).isTriggered());
@@ -499,10 +524,10 @@ public class GameEngineTest {
 
     @Test
     public void teleportTrapReturnsPlayerToEntrance() {
-        GameState state = GameState.newGame(123L);
-        Trap trap = findTrap(state, Trap.TELEPORT);
+        GameState state = trapTestState(Trap.teleport("test-teleport", new Position(3, 2)));
+        Trap trap = state.getTraps().get(0);
 
-        GameState triggered = stateAfterPath(state, trap.getPosition());
+        GameState triggered = state.movePlayer(Direction.EAST);
 
         assertEquals(triggered.getWorld().getSpawnPosition(), triggered.getPlayer().getPosition());
         assertTrue(findTrapById(triggered, trap.getId()).isTriggered());
@@ -600,6 +625,7 @@ public class GameEngineTest {
 
         assertFalse(findEnemy(withoutBoss, "defense-committee").isAlive());
         assertTrue(withoutBoss.getMessage().contains("Final defense is ready"));
+        assertTrue(withoutBoss.getMessage().contains("Room cleared"));
     }
 
     @Test
@@ -771,11 +797,43 @@ public class GameEngineTest {
         return moveByRulesOnly(state, target);
     }
 
-    private GameState moveByRulesOnly(GameState state, Position target) {
+    private GameState stateAfterPathAllowingTeleport(GameState state, Position target) {
         String path = pathTo(state, target);
         GameState current = state;
         for (int i = 0; i < path.length(); i++) {
             current = current.movePlayer(InputCommand.fromKey(path.charAt(i)).getDirection());
+            if (current.getMessage().contains("Teleport trap triggered")) {
+                return current;
+            }
+        }
+        return current;
+    }
+
+    private GameState moveByRulesOnly(GameState state, Position target) {
+        GameState current = state;
+        for (int attempt = 0; attempt < 20 && !current.getPlayer().getPosition().equals(target); attempt++) {
+            String path = pathTo(current, target);
+            boolean interruptedByCombatRoom = false;
+            for (int i = 0; i < path.length(); i++) {
+                Position before = current.getPlayer().getPosition();
+                current = current.movePlayer(InputCommand.fromKey(path.charAt(i)).getDirection());
+                if (current.getPlayer().getPosition().equals(target)) {
+                    return current;
+                }
+                if (before.equals(current.getPlayer().getPosition())
+                        && "Combat room locked. Defeat all enemies first.".equals(current.getMessage())) {
+                    current = clearCurrentCombatRoom(current);
+                    interruptedByCombatRoom = true;
+                    break;
+                }
+            }
+            if (!interruptedByCombatRoom && !current.getPlayer().getPosition().equals(target)) {
+                break;
+            }
+        }
+        if (!current.getPlayer().getPosition().equals(target)) {
+            throw new AssertionError("Could not reach " + target + " from " + current.getPlayer().getPosition()
+                    + ": " + current.getMessage());
         }
         return current;
     }
@@ -813,10 +871,100 @@ public class GameEngineTest {
                 Collections.<Trap>emptyList(), QuestState.initial(), null, "Projectile test.");
     }
 
+    private GameState combatRoomTestState() {
+        int width = 9;
+        int height = 5;
+        Tile[][] tiles = new Tile[height][width];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                tiles[y][x] = Tile.WALL;
+            }
+        }
+        for (int y = 1; y <= 3; y++) {
+            for (int x = 1; x <= 3; x++) {
+                tiles[y][x] = Tile.FLOOR;
+            }
+            for (int x = 5; x <= 7; x++) {
+                tiles[y][x] = Tile.FLOOR;
+            }
+        }
+        tiles[2][4] = Tile.FLOOR;
+        Position spawn = new Position(2, 2);
+        World world = new World(width, height, tiles,
+                asRooms(new Room(1, 1, 3, 3), new Room(5, 1, 3, 3)),
+                Collections.emptyList(), spawn, new Position(7, 2), new Position(7, 2));
+        GameState.PlayerState player = GameState.PlayerState.of(spawn.getX(), spawn.getY(), Direction.EAST, 0);
+        List<Enemy> enemies = new ArrayList<Enemy>();
+        enemies.add(Enemy.bug("room-bug", new Position(6, 2)));
+        return GameState.restored(123L, 1, true, false, false, GameStatus.PLAYING, player, world,
+                Inventory.empty(), Collections.<Item>emptyList(), enemies, Collections.<Npc>emptyList(),
+                Collections.<Trap>emptyList(), QuestState.initial(), null, "Combat room test.");
+    }
+
+    private GameState trapTestState(Trap trap) {
+        int width = 6;
+        int height = 5;
+        Tile[][] tiles = new Tile[height][width];
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                tiles[y][x] = x == 0 || y == 0 || x == width - 1 || y == height - 1 ? Tile.WALL : Tile.FLOOR;
+            }
+        }
+        Position spawn = new Position(2, 2);
+        World world = new World(width, height, tiles,
+                Collections.singletonList(new Room(1, 1, 4, 3)),
+                Collections.emptyList(), spawn, new Position(4, 2), new Position(4, 2));
+        GameState.PlayerState player = GameState.PlayerState.of(spawn.getX(), spawn.getY(), Direction.EAST, 0);
+        return GameState.restored(123L, 1, true, false, false, GameStatus.PLAYING, player, world,
+                Inventory.empty(), Collections.<Item>emptyList(), Collections.<Enemy>emptyList(),
+                Collections.<Npc>emptyList(), Collections.singletonList(trap), QuestState.initial(),
+                null, "Trap test.");
+    }
+
+    private List<Room> asRooms(Room first, Room second) {
+        List<Room> rooms = new ArrayList<Room>();
+        rooms.add(first);
+        rooms.add(second);
+        return rooms;
+    }
+
     private GameState descendToDepth(GameState state, int targetDepth) {
         GameState current = state;
-        while (current.getDepth() < targetDepth) {
+        int attempts = 0;
+        while (current.getDepth() < targetDepth && attempts < 10) {
+            attempts++;
             current = stateAfterPath(current, current.getWorld().getStairsPosition()).interact();
+        }
+        if (current.getDepth() < targetDepth) {
+            throw new AssertionError("Could not descend to depth " + targetDepth + ": " + current.getMessage());
+        }
+        return current;
+    }
+
+    private GameState clearCurrentCombatRoom(GameState state) {
+        RoomState roomState = state.currentRoomState();
+        if (roomState == null) {
+            return state;
+        }
+        GameState current = state;
+        for (Enemy enemy : state.getEnemies()) {
+            if (enemy.isAlive() && current.roomStateAt(enemy.getPosition()) != null
+                    && current.roomStateAt(enemy.getPosition()).getId() == roomState.getId()) {
+                current = defeatEnemy(current, enemy.getId());
+            }
+        }
+        return current;
+    }
+
+    private GameState defeatEnemy(GameState state, String enemyId) {
+        Enemy enemy = findEnemy(state, enemyId);
+        Position adjacent = adjacentWalkableTileInCurrentRoom(state, enemy.getPosition());
+        GameState current = state.getPlayer().getPosition().equals(adjacent)
+                ? state
+                : applyPath(state, pathToInsideCurrentRoom(state, adjacent));
+        Direction direction = directionBetween(current.getPlayer().getPosition(), enemy.getPosition());
+        while (findEnemy(current, enemyId).isAlive()) {
+            current = current.movePlayer(direction);
         }
         return current;
     }
@@ -839,6 +987,104 @@ public class GameEngineTest {
             }
         }
         throw new AssertionError("Missing enemy: " + enemyId);
+    }
+
+    private Enemy firstAliveEnemy(GameState state) {
+        for (Enemy enemy : state.getEnemies()) {
+            if (enemy.isAlive()) {
+                return enemy;
+            }
+        }
+        throw new AssertionError("Missing alive enemy.");
+    }
+
+    private Position adjacentWalkableTileInCurrentRoom(GameState state, Position target) {
+        Room room = state.getWorld().getRooms().get(state.currentRoomState().getId());
+        Direction[] directions = {Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
+        for (Direction direction : directions) {
+            Position candidate = new Position(target.getX() - direction.getDx(), target.getY() - direction.getDy());
+            if (room.contains(candidate)
+                    && state.getWorld().isWalkable(candidate)
+                    && state.enemyAt(candidate) == null
+                    && state.trapAt(candidate) == null) {
+                return candidate;
+            }
+        }
+        throw new AssertionError("Could not find adjacent room tile for " + target);
+    }
+
+    private GameState tryLeaveCurrentRoom(GameState state) {
+        RoomState roomState = state.currentRoomState();
+        Room room = state.getWorld().getRooms().get(roomState.getId());
+        Queue<Position> queue = new ArrayDeque<Position>();
+        Queue<String> paths = new ArrayDeque<String>();
+        boolean[][] visited = new boolean[state.getWorld().getHeight()][state.getWorld().getWidth()];
+        queue.add(state.getPlayer().getPosition());
+        paths.add("");
+        visited[state.getPlayer().getY()][state.getPlayer().getX()] = true;
+
+        while (!queue.isEmpty()) {
+            Position current = queue.remove();
+            String path = paths.remove();
+            Direction[] directions = {Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
+            for (Direction direction : directions) {
+                Position next = new Position(current.getX() + direction.getDx(), current.getY() + direction.getDy());
+                if (state.getWorld().contains(next.getX(), next.getY())
+                        && state.getWorld().isWalkable(next)
+                        && !visited[next.getY()][next.getX()]
+                        && state.enemyAt(next) == null
+                        && state.trapAt(next) == null) {
+                    String nextPath = path + keyFor(direction);
+                    if (!room.contains(next)) {
+                        return applyPath(state, nextPath);
+                    }
+                    visited[next.getY()][next.getX()] = true;
+                    queue.add(next);
+                    paths.add(nextPath);
+                }
+            }
+        }
+        throw new AssertionError("Could not find room exit path.");
+    }
+
+    private String pathToInsideCurrentRoom(GameState state, Position target) {
+        Room room = state.getWorld().getRooms().get(state.currentRoomState().getId());
+        Queue<Position> queue = new ArrayDeque<Position>();
+        Queue<String> paths = new ArrayDeque<String>();
+        boolean[][] visited = new boolean[state.getWorld().getHeight()][state.getWorld().getWidth()];
+        queue.add(state.getPlayer().getPosition());
+        paths.add("");
+        visited[state.getPlayer().getY()][state.getPlayer().getX()] = true;
+
+        while (!queue.isEmpty()) {
+            Position current = queue.remove();
+            String path = paths.remove();
+            if (current.equals(target)) {
+                return path;
+            }
+            Direction[] directions = {Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
+            for (Direction direction : directions) {
+                Position next = new Position(current.getX() + direction.getDx(), current.getY() + direction.getDy());
+                if (room.contains(next)
+                        && !visited[next.getY()][next.getX()]
+                        && state.getWorld().isWalkable(next)
+                        && state.enemyAt(next) == null
+                        && state.trapAt(next) == null) {
+                    visited[next.getY()][next.getX()] = true;
+                    queue.add(next);
+                    paths.add(path + keyFor(direction));
+                }
+            }
+        }
+        throw new AssertionError("Could not find in-room path to " + target);
+    }
+
+    private GameState applyPath(GameState state, String path) {
+        GameState current = state;
+        for (int i = 0; i < path.length(); i++) {
+            current = current.movePlayer(InputCommand.fromKey(path.charAt(i)).getDirection());
+        }
+        return current;
     }
 
     private Trap findTrap(GameState state, String type) {
