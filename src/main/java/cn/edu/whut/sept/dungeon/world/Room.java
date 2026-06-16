@@ -44,6 +44,14 @@ public final class Room {
         return new Position(x + width / 2, y + height / 2);
     }
 
+    public boolean contains(Position position) {
+        return position != null
+                && position.getX() >= x
+                && position.getX() <= getRight()
+                && position.getY() >= y
+                && position.getY() <= getBottom();
+    }
+
     public boolean intersectsWithMargin(Room other, int margin) {
         return x - margin <= other.getRight()
                 && getRight() + margin >= other.x

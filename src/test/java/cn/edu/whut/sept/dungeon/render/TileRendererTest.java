@@ -175,10 +175,30 @@ public class TileRendererTest {
     }
 
     private GameState stateAfterPath(GameState state, Position target) {
-        String path = pathTo(state, target);
         GameState current = state;
-        for (int i = 0; i < path.length(); i++) {
-            current = current.movePlayer(InputCommand.fromKey(path.charAt(i)).getDirection());
+        for (int attempt = 0; attempt < 20 && !current.getPlayer().getPosition().equals(target); attempt++) {
+            String path = pathTo(current, target);
+            boolean interruptedByCombatRoom = false;
+            for (int i = 0; i < path.length(); i++) {
+                Position before = current.getPlayer().getPosition();
+                current = current.movePlayer(InputCommand.fromKey(path.charAt(i)).getDirection());
+                if (current.getPlayer().getPosition().equals(target)) {
+                    return current;
+                }
+                if (before.equals(current.getPlayer().getPosition())
+                        && "Combat room locked. Defeat all enemies first.".equals(current.getMessage())) {
+                    current = clearCurrentCombatRoom(current);
+                    interruptedByCombatRoom = true;
+                    break;
+                }
+            }
+            if (!interruptedByCombatRoom && !current.getPlayer().getPosition().equals(target)) {
+                break;
+            }
+        }
+        if (!current.getPlayer().getPosition().equals(target)) {
+            throw new AssertionError("Could not reach " + target + " from " + current.getPlayer().getPosition()
+                    + ": " + current.getMessage());
         }
         return current;
     }
@@ -230,8 +250,30 @@ public class TileRendererTest {
 
     private GameState descendToDepth(GameState state, int targetDepth) {
         GameState current = state;
-        while (current.getDepth() < targetDepth) {
+        int attempts = 0;
+        while (current.getDepth() < targetDepth && attempts < 10) {
+            attempts++;
             current = stateAfterPath(current, current.getWorld().getStairsPosition()).interact();
+        }
+        if (current.getDepth() < targetDepth) {
+            throw new AssertionError("Could not descend to depth " + targetDepth + ": " + current.getMessage());
+        }
+        return current;
+    }
+
+    private GameState clearCurrentCombatRoom(GameState state) {
+        GameState current = state;
+        int roomId = state.currentRoomState() == null ? -1 : state.currentRoomState().getId();
+        for (Enemy enemy : state.getEnemies()) {
+            if (enemy.isAlive() && current.roomStateAt(enemy.getPosition()) != null
+                    && current.roomStateAt(enemy.getPosition()).getId() == roomId) {
+                Position adjacent = adjacentWalkableTile(current, enemy.getPosition());
+                current = stateAfterPath(current, adjacent);
+                Direction direction = directionBetween(adjacent, enemy.getPosition());
+                while (findEnemy(current, enemy.getId()).isAlive()) {
+                    current = current.movePlayer(direction);
+                }
+            }
         }
         return current;
     }
@@ -252,6 +294,18 @@ public class TileRendererTest {
             }
         }
         throw new AssertionError("Missing item: " + itemId);
+    }
+
+    private Direction directionBetween(Position from, Position to) {
+        int dx = to.getX() - from.getX();
+        int dy = to.getY() - from.getY();
+        Direction[] directions = {Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
+        for (Direction direction : directions) {
+            if (direction.getDx() == dx && direction.getDy() == dy) {
+                return direction;
+            }
+        }
+        throw new AssertionError("Positions are not adjacent: " + from + " -> " + to);
     }
 
     private char keyFor(Direction direction) {
