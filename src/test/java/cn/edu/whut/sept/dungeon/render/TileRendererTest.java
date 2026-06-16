@@ -14,12 +14,26 @@ import cn.edu.whut.sept.dungeon.world.Room;
 import cn.edu.whut.sept.dungeon.world.World;
 import org.junit.Test;
 
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.util.ArrayDeque;
 import java.util.Queue;
 
 import static org.junit.Assert.assertEquals;
 
 public class TileRendererTest {
+    @Test
+    public void rendererUsesLargeCameraViewportForActionDungeon() {
+        TilePanel tilePanel = new TilePanel();
+        HudPanel hudPanel = new HudPanel();
+
+        assertEquals(24, TileRenderer.TILE_SIZE);
+        assertEquals(TileRenderer.VIEWPORT_WIDTH * TileRenderer.TILE_SIZE, tilePanel.getPreferredSize().width);
+        assertEquals(TileRenderer.VIEWPORT_HEIGHT * TileRenderer.TILE_SIZE, tilePanel.getPreferredSize().height);
+        assertEquals(tilePanel.getPreferredSize().width, hudPanel.getPreferredSize().width);
+    }
+
     @Test
     public void rendererUsesPlayerColorAtPlayerPosition() {
         GameState state = new GameEngine().playWithInputString("n123s").getState();
@@ -79,6 +93,22 @@ public class TileRendererTest {
 
         assertEquals(TileRenderer.ENEMY_COLOR,
                 renderer.colorFor(state, enemy.getPosition().getX(), enemy.getPosition().getY()));
+    }
+
+    @Test
+    public void rendererDrawsCombatRoomLockWarning() {
+        GameEngine engine = new GameEngine();
+        engine.handleInput(InputCommand.newGame(123L));
+        Enemy enemy = engine.getState().getEnemies().get(0);
+        GameState state = stateAfterPath(engine.getState(), adjacentWalkableTile(engine.getState(), enemy.getPosition()));
+
+        BufferedImage image = new BufferedImage(TileRenderer.VIEWPORT_WIDTH * TileRenderer.TILE_SIZE,
+                TileRenderer.VIEWPORT_HEIGHT * TileRenderer.TILE_SIZE, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        new TileRenderer().draw(state, graphics);
+        graphics.dispose();
+
+        assertEquals(TileRenderer.ROOM_LOCK_COLOR.getRGB(), findFirstPixel(image, TileRenderer.ROOM_LOCK_COLOR));
     }
 
     @Test
@@ -153,6 +183,18 @@ public class TileRendererTest {
             state = engine.handleInput(InputCommand.fromKey(path.charAt(i)));
         }
         return state;
+    }
+
+    private int findFirstPixel(BufferedImage image, Color color) {
+        int target = color.getRGB();
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                if (image.getRGB(x, y) == target) {
+                    return target;
+                }
+            }
+        }
+        throw new AssertionError("Missing color: " + color);
     }
 
     private Enemy firstUnseenEnemy(GameState state) {
