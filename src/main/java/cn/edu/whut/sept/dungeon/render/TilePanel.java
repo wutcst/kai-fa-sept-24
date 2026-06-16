@@ -1,7 +1,6 @@
 package cn.edu.whut.sept.dungeon.render;
 
 import cn.edu.whut.sept.dungeon.core.GameState;
-import cn.edu.whut.sept.dungeon.world.World;
 
 import java.awt.Dimension;
 import java.awt.Graphics;
@@ -14,8 +13,8 @@ public final class TilePanel extends JPanel {
 
     public TilePanel() {
         this.renderer = new TileRenderer();
-        setPreferredSize(new Dimension(World.DEFAULT_WIDTH * TileRenderer.TILE_SIZE,
-                World.DEFAULT_HEIGHT * TileRenderer.TILE_SIZE));
+        setPreferredSize(new Dimension(TileRenderer.VIEWPORT_WIDTH * TileRenderer.TILE_SIZE,
+                TileRenderer.VIEWPORT_HEIGHT * TileRenderer.TILE_SIZE));
         setFocusable(false);
     }
 
