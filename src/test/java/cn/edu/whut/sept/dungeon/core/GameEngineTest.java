@@ -438,6 +438,41 @@ public class GameEngineTest {
     }
 
     @Test
+    public void defenseCommitteePhaseOneFiresSingleQuestion() {
+        GameState state = activeBossRoomState(new Enemy("defense-committee", "Defense Committee",
+                new Position(7, 2), 24, 9, 3, 30, true), new Position(2, 2));
+
+        GameState ticked = state.tick().tick().tick().tick();
+
+        assertEquals(1, ticked.getProjectiles().size());
+        assertTrue(ticked.getProjectiles().get(0).getId().startsWith("boss-question-"));
+        assertTrue(ticked.getMessage().contains("phase 1"));
+    }
+
+    @Test
+    public void defenseCommitteePhaseTwoFiresTripleReview() {
+        GameState state = activeBossRoomState(new Enemy("defense-committee", "Defense Committee",
+                new Position(7, 2), 12, 9, 3, 30, true), new Position(2, 2));
+
+        GameState ticked = state.tick().tick().tick();
+
+        assertEquals(3, ticked.getProjectiles().size());
+        assertTrue(ticked.getMessage().contains("phase 2"));
+    }
+
+    @Test
+    public void defenseCommitteePhaseThreeSummonsFinalQuestions() {
+        GameState state = activeBossRoomState(new Enemy("defense-committee", "Defense Committee",
+                new Position(7, 2), 6, 9, 3, 30, true), new Position(2, 2));
+
+        GameState ticked = state.tick().tick();
+
+        assertEquals(1, ticked.getProjectiles().size());
+        assertNotNull(findEnemy(ticked, "boss-summon-2"));
+        assertTrue(ticked.getMessage().contains("phase 3"));
+    }
+
+    @Test
     public void moveUpdatesVisibleAndExploredTiles() {
         GameState initial = new GameEngine().playWithInputString("n123s").getState();
         GameEngine engine = new GameEngine();
@@ -1014,6 +1049,14 @@ public class GameEngineTest {
     }
 
     private GameState activeAiRoomState(Enemy enemy, Position playerPosition) {
+        return activeAiRoomState(enemy, playerPosition, RoomType.COMBAT);
+    }
+
+    private GameState activeBossRoomState(Enemy boss, Position playerPosition) {
+        return activeAiRoomState(boss, playerPosition, RoomType.BOSS);
+    }
+
+    private GameState activeAiRoomState(Enemy enemy, Position playerPosition, RoomType roomType) {
         int width = 10;
         int height = 5;
         Tile[][] tiles = new Tile[height][width];
@@ -1029,7 +1072,7 @@ public class GameEngineTest {
                 Direction.EAST, 0);
         List<Enemy> enemies = new ArrayList<Enemy>();
         enemies.add(enemy);
-        List<RoomState> rooms = Collections.singletonList(new RoomState(0, RoomType.COMBAT, RoomStatus.ACTIVE, false));
+        List<RoomState> rooms = Collections.singletonList(new RoomState(0, roomType, RoomStatus.ACTIVE, false));
         return GameState.restored(123L, 1, true, false, false, 0L, GameStatus.PLAYING, player, world,
                 Inventory.empty(), Collections.<Item>emptyList(), enemies, Collections.<Projectile>emptyList(),
                 rooms, Collections.<Npc>emptyList(), Collections.<Trap>emptyList(), QuestState.initial(),

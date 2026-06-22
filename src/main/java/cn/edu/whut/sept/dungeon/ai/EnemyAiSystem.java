@@ -18,6 +18,11 @@ public final class EnemyAiSystem {
     private static final int SHOOTER_MIN_DISTANCE = 3;
     private static final int SHOOTER_COOLDOWN_TICKS = 3;
     private static final int ENEMY_PROJECTILE_RANGE = 6;
+    private static final int BOSS_PROJECTILE_RANGE = 9;
+    private static final int BOSS_PHASE_ONE_COOLDOWN_TICKS = 4;
+    private static final int BOSS_PHASE_TWO_COOLDOWN_TICKS = 3;
+    private static final int BOSS_PHASE_THREE_COOLDOWN_TICKS = 2;
+    private static final int BOSS_MAX_HP = 28;
 
     public EnemyAiResult tick(World world, List<Enemy> enemies, List<Projectile> projectiles,
                               GameState.PlayerState player, long tick, int activeRoomId) {
@@ -33,6 +38,16 @@ public final class EnemyAiSystem {
             }
             if (!isEnemyAllowedToAct(world, enemy, activeRoomId)) {
                 nextEnemies.add(enemy);
+                continue;
+            }
+            if (enemy.isDefenseCommittee()) {
+                BossAction action = bossAction(world, enemy, nextPlayer, tick, activeRoomId, nextEnemies, enemies);
+                nextProjectiles.addAll(action.projectiles);
+                nextEnemies.add(action.enemy);
+                nextEnemies.addAll(action.summons);
+                if (action.message != null) {
+                    message = action.message;
+                }
                 continue;
             }
             if (enemy.getPosition().manhattanDistanceTo(nextPlayer.getPosition()) == 1) {
@@ -74,6 +89,78 @@ public final class EnemyAiSystem {
         }
 
         return new EnemyAiResult(nextPlayer, nextEnemies, nextProjectiles, message);
+    }
+
+    private BossAction bossAction(World world, Enemy boss, GameState.PlayerState player, long tick,
+                                  int activeRoomId, List<Enemy> alreadyMoved, List<Enemy> allEnemies) {
+        List<Projectile> projectiles = new ArrayList<Projectile>();
+        List<Enemy> summons = new ArrayList<Enemy>();
+        String message = null;
+        int phase = bossPhase(boss);
+        Direction shotDirection = straightShotDirection(boss.getPosition(), player.getPosition());
+
+        if (phase == 1 && shotDirection != null && tick % BOSS_PHASE_ONE_COOLDOWN_TICKS == 0) {
+            projectiles.add(Projectile.enemy("boss-question-" + tick, boss.getPosition(),
+                    shotDirection, boss.getAtk(), BOSS_PROJECTILE_RANGE));
+            message = "Defense Committee phase 1 asks a direct question.";
+        } else if (phase == 2 && tick % BOSS_PHASE_TWO_COOLDOWN_TICKS == 0) {
+            Direction primary = shotDirection == null ? preferredDirectionsToward(boss.getPosition(), player.getPosition())[0]
+                    : shotDirection;
+            Direction[] directions = spreadDirections(primary);
+            for (int i = 0; i < directions.length; i++) {
+                projectiles.add(Projectile.enemy("boss-triple-" + tick + "-" + i, boss.getPosition(),
+                        directions[i], boss.getAtk() + 1, BOSS_PROJECTILE_RANGE));
+            }
+            message = "Defense Committee phase 2 starts a triple review.";
+        } else if (phase == 3 && tick % BOSS_PHASE_THREE_COOLDOWN_TICKS == 0) {
+            Direction primary = shotDirection == null ? preferredDirectionsToward(boss.getPosition(), player.getPosition())[0]
+                    : shotDirection;
+            projectiles.add(Projectile.enemy("boss-final-" + tick, boss.getPosition(),
+                    primary, boss.getAtk() + 2, BOSS_PROJECTILE_RANGE));
+            Enemy summon = bossSummon(world, boss, activeRoomId, alreadyMoved, allEnemies, tick);
+            if (summon != null) {
+                summons.add(summon);
+                message = "Defense Committee phase 3 summons final questions.";
+            } else {
+                message = "Defense Committee phase 3 launches final questions.";
+            }
+        }
+
+        Enemy movedBoss = boss;
+        if (boss.getPosition().manhattanDistanceTo(player.getPosition()) < SHOOTER_MIN_DISTANCE) {
+            movedBoss = moveOneStepAway(world, boss, player.getPosition(), allEnemies, alreadyMoved, activeRoomId);
+        }
+        return new BossAction(movedBoss, projectiles, summons, message);
+    }
+
+    private int bossPhase(Enemy boss) {
+        if (boss.getHp() <= BOSS_MAX_HP / 4) {
+            return 3;
+        }
+        if (boss.getHp() <= BOSS_MAX_HP / 2) {
+            return 2;
+        }
+        return 1;
+    }
+
+    private Direction[] spreadDirections(Direction primary) {
+        if (primary == Direction.NORTH || primary == Direction.SOUTH) {
+            return new Direction[]{primary, Direction.WEST, Direction.EAST};
+        }
+        return new Direction[]{primary, Direction.NORTH, Direction.SOUTH};
+    }
+
+    private Enemy bossSummon(World world, Enemy boss, int activeRoomId, List<Enemy> alreadyMoved,
+                             List<Enemy> allEnemies, long tick) {
+        Direction[] directions = {Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
+        for (Direction direction : directions) {
+            Position candidate = new Position(boss.getPosition().getX() + direction.getDx(),
+                    boss.getPosition().getY() + direction.getDy());
+            if (canMoveTo(world, candidate, boss.getPosition(), boss, allEnemies, alreadyMoved, activeRoomId)) {
+                return Enemy.bug("boss-summon-" + tick, candidate);
+            }
+        }
+        return null;
     }
 
     private boolean isEnemyAllowedToAct(World world, Enemy enemy, int activeRoomId) {
@@ -202,5 +289,19 @@ public final class EnemyAiSystem {
             }
         }
         return -1;
+    }
+
+    private static final class BossAction {
+        private final Enemy enemy;
+        private final List<Projectile> projectiles;
+        private final List<Enemy> summons;
+        private final String message;
+
+        private BossAction(Enemy enemy, List<Projectile> projectiles, List<Enemy> summons, String message) {
+            this.enemy = enemy;
+            this.projectiles = projectiles;
+            this.summons = summons;
+            this.message = message;
+        }
     }
 }

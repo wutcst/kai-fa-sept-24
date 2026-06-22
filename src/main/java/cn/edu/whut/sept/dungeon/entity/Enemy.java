@@ -83,6 +83,10 @@ public final class Enemy {
         return "Review Shooter".equals(type);
     }
 
+    public boolean isDefenseCommittee() {
+        return "Defense Committee".equals(type);
+    }
+
     public Enemy damage(int amount) {
         int nextHp = Math.max(0, hp - amount);
         return new Enemy(id, type, position, nextHp, atk, def, expReward, nextHp > 0);
